@@ -1271,7 +1271,7 @@ TESTEXAMPLES_C_NOTSINGLE       = ex1.PETSc runex1 runex1_2 ex1.rm ex5.PETSc rune
                                  runex19_6 runex19_fieldsplit_2 runex19_fieldsplit_3 runex19_fieldsplit_4 \
                                  runex19_composite_fieldsplit runex19_composite_fieldsplit_bjacobi runex19_composite_fieldsplit_bjacobi_2\
                                  runex19_7 runex19_8 runex19_9 runex19_greedy_coloring \
-                                 runex19_10 runex19_14 runex19_14_ds runex19_fas runex19_bjacobi runex19_composite_gs_newton runex19_parms \
+                                 runex19_10 runex19_14 runex19_14_ds runex19_fas runex19_bjacobi runex19_composite_gs_newton 
                                  runex19_cgne runex19_cgne_2  ex19.rm \
                                  ex20.PETSc runex20 ex20.rm ex22.PETSc runex22 ex22.rm \
                                  ex35.PETSc runex35 runex35_2  runex35_7 ex35.rm \

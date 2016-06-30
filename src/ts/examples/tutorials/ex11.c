@@ -1491,7 +1491,7 @@ static PetscErrorCode adaptToleranceFVM(PetscFV fvm, TS ts, Vec sol, PetscReal r
   DM                dm, gradDM, plex, cellDM, adaptedDM = NULL;
   Vec               cellGeom, faceGeom;
   PetscBool         isForest, computeGradient;
-  Vec               grad, locX;
+  Vec               grad, locGrad, locX;
   PetscInt          cStart, cEnd, cEndInterior, c, dim;
   PetscReal         minMaxInd[2] = {PETSC_MAX_REAL, PETSC_MIN_REAL}, minMaxIndGlobal[2], minInd, maxInd, time;
   const PetscScalar *pointVals;
@@ -1503,23 +1503,25 @@ static PetscErrorCode adaptToleranceFVM(PetscFV fvm, TS ts, Vec sol, PetscReal r
   ierr = TSGetTime(ts,&time);CHKERRQ(ierr);
   ierr = VecGetDM(sol, &dm);CHKERRQ(ierr);
   ierr = DMGetDimension(dm,&dim);CHKERRQ(ierr);
-  ierr = DMPlexTSGetGeometryFVM(dm, &faceGeom, &cellGeom, NULL);CHKERRQ(ierr);
   ierr = PetscFVGetComputeGradients(fvm,&computeGradient);CHKERRQ(ierr);
   ierr = PetscFVSetComputeGradients(fvm,PETSC_TRUE);CHKERRQ(ierr);
-  ierr = DMPlexTSGetGradientDM(dm,fvm,&gradDM);CHKERRQ(ierr);
   ierr = DMIsForest(dm, &isForest);CHKERRQ(ierr);
   ierr = DMConvert(dm, DMPLEX, &plex);CHKERRQ(ierr);
-  ierr = DMPlexComputeGradientFVM(plex,fvm,faceGeom,cellGeom,&gradDM);CHKERRQ(ierr);
+  ierr = DMPlexGetDataFVM(plex, fvm, &cellGeom, &faceGeom, &gradDM);CHKERRQ(ierr);
   ierr = DMCreateLocalVector(plex,&locX);CHKERRQ(ierr);
   ierr = DMPlexInsertBoundaryValues(plex, PETSC_TRUE, locX, 0.0, faceGeom, cellGeom, NULL);CHKERRQ(ierr);
   ierr = DMGlobalToLocalBegin(plex, sol, INSERT_VALUES, locX);CHKERRQ(ierr);
   ierr = DMGlobalToLocalEnd  (plex, sol, INSERT_VALUES, locX);CHKERRQ(ierr);
   ierr = DMCreateGlobalVector(gradDM, &grad);CHKERRQ(ierr);
   ierr = DMPlexReconstructGradientsFVM(plex, locX, grad);CHKERRQ(ierr);
+  ierr = DMCreateLocalVector(gradDM, &locGrad);CHKERRQ(ierr);
+  ierr = DMGlobalToLocalBegin(gradDM, grad, INSERT_VALUES, locGrad);CHKERRQ(ierr);
+  ierr = DMGlobalToLocalEnd(gradDM, grad, INSERT_VALUES, locGrad);CHKERRQ(ierr);
+  ierr = VecDestroy(&grad);CHKERRQ(ierr);
   ierr = DMPlexGetHeightStratum(plex,0,&cStart,&cEnd);CHKERRQ(ierr);
   ierr = DMPlexGetHybridBounds(plex,&cEndInterior,NULL,NULL,NULL);CHKERRQ(ierr);
   cEnd = (cEndInterior < 0) ? cEnd : cEndInterior;
-  ierr = VecGetArrayRead(grad,&pointGrads);CHKERRQ(ierr);
+  ierr = VecGetArrayRead(locGrad,&pointGrads);CHKERRQ(ierr);
   ierr = VecGetArrayRead(cellGeom,&pointGeom);CHKERRQ(ierr);
   ierr = VecGetArrayRead(locX,&pointVals);CHKERRQ(ierr);
   ierr = VecGetDM(cellGeom,&cellDM);CHKERRQ(ierr);
@@ -1527,7 +1529,7 @@ static PetscErrorCode adaptToleranceFVM(PetscFV fvm, TS ts, Vec sol, PetscReal r
     DMLabel adaptLabel;
 
     ierr = DMRemoveLabel(dm,"adapt",&adaptLabel);CHKERRQ(ierr);
-    ierr = PetscFree(adaptLabel);CHKERRQ(ierr);
+    ierr = DMLabelDestroy(&adaptLabel);CHKERRQ(ierr);
     ierr = DMCreateLabel(dm,"adapt");CHKERRQ(ierr);
   }
 
@@ -1553,8 +1555,8 @@ static PetscErrorCode adaptToleranceFVM(PetscFV fvm, TS ts, Vec sol, PetscReal r
   }
   ierr = VecRestoreArrayRead(locX,&pointVals);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(cellGeom,&pointGeom);CHKERRQ(ierr);
-  ierr = VecRestoreArrayRead(grad,&pointGrads);CHKERRQ(ierr);
-  ierr = VecDestroy(&grad);CHKERRQ(ierr);
+  ierr = VecRestoreArrayRead(locGrad,&pointGrads);CHKERRQ(ierr);
+  ierr = VecDestroy(&locGrad);CHKERRQ(ierr);
   ierr = VecDestroy(&locX);CHKERRQ(ierr);
   ierr = DMDestroy(&plex);CHKERRQ(ierr);
   ierr = PetscFVSetComputeGradients(fvm,computeGradient);CHKERRQ(ierr);

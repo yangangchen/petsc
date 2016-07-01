@@ -6376,3 +6376,32 @@ PetscErrorCode DMGetNeighbors(DM dm,PetscInt *nranks,const PetscMPIInt *ranks[])
   PetscFunctionReturn(0);
 }
 
+#undef __FUNCT__
+#define __FUNCT__ "DMAdaptLabel"
+/*@C
+  DMAdaptLabel - Adapt a dm based on a label with values interpreted as coarsening and refining flags.  Specific implementations of DM maybe have
+                 specialized flags, but all implementations should accept flag values DM_ADAPT_DETERMINE, DM_ADAPT_KEEP, DM_ADAPT_REFINE, and DM_ADAPT_COARSEN.
+
+  Collective on dm
+
+  Input parameters:
++ dm - the pre-adaptation DM object
+- label - label with the flags
+
+  Output parameters:
+. adaptedDM - the adapted DM object: may be NULL if an adapted DM could not be produced.
+
+  Level: intermediate
+@*/
+PetscErrorCode DMAdaptLabel(DM dm, DMLabel label, DM *adaptedDM)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(dm, DM_CLASSID, 1);
+  PetscValidPointer(label,2);
+  PetscValidPointer(adaptedDM,3);
+  *adaptedDM = NULL;
+  ierr = PetscTryMethod((PetscObject)dm,"DMAdaptLabel_C",(DM,DMLabel, DM*),(dm,label,adaptedDM));CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}

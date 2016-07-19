@@ -2636,7 +2636,7 @@ TESTEXAMPLES_C		       = ex1.PETSc runex1 ex1.rm ex2.PETSc runex2 runex2_2 runex
                                  runex18_9 runex18_10 runex18_11 runex18_12 runex18_13 runex18_14 ex18.rm \
                                  ex19.PETSc runex19 ex19.rm ex20.PETSc runex20 \
                                  ex20.rm ex21.PETSc runex21 ex21.rm ex22.PETSc runex22 ex22.rm ex16.PETSc runex16 ex16.rm \
-                                 ex23.rm ex23.PETSc runex23 runex23_2 runex23_3 runex23_4 ex23.rm \
+                                 ex23.PETSc runex23 runex23_2 runex23_3 runex23_4 ex23.rm \
                                  ex26.PETSc runex26 runex26_2 ex26.rm \
                                  ex29.PETSc runex29 ex29.rm \
                                  ex45.PETSc ex45.rm ex55.PETSc runex55 runex55_2 ex55.rm \

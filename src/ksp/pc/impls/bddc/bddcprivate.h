@@ -54,7 +54,20 @@ PetscErrorCode PCBDDCSetUseExactDirichlet(PC,PetscBool);
 PetscErrorCode PCBDDCSetLevel(PC,PetscInt);
 PetscErrorCode PCBDDCGlobalToLocal(VecScatter,Vec,Vec,IS,IS*);
 PetscErrorCode PCBDDCAdaptiveSelection(PC);
+PetscErrorCode PCBDDCComputeLocalTopologyInfo(PC);
 PetscErrorCode MatGetSubMatrixUnsorted(Mat,IS,IS,Mat*);
+PetscErrorCode MatDetectDisconnectedComponents(Mat,PetscBool,PetscInt*,IS*[]);
+PetscErrorCode MatSeqAIJCompress(Mat,Mat*);
+PetscErrorCode PCBDDCReuseSolversBenignAdapt(PCBDDCReuseSolvers,Vec,Vec,PetscBool,PetscBool);
+PetscErrorCode PCBDDCComputeNoNetFlux(Mat,Mat,PetscBool,IS,PCBDDCGraph,MatNullSpace*);
+
+/* benign subspace trick */
+PetscErrorCode PCBDDCBenignPopOrPushB0(PC,PetscBool);
+PetscErrorCode PCBDDCBenignGetOrSetP0(PC,Vec,PetscBool);
+PetscErrorCode PCBDDCBenignDetectSaddlePoint(PC,IS*);
+PetscErrorCode PCBDDCBenignCheck(PC,IS);
+PetscErrorCode PCBDDCBenignShellMat(PC,PetscBool);
+PetscErrorCode PCBDDCBenignRemoveInterior(PC,Vec,Vec);
 
 /* feti-dp */
 PetscErrorCode PCBDDCCreateFETIDPMatContext(PC,FETIDPMat_ctx*);
@@ -73,9 +86,8 @@ PetscErrorCode PCBDDCSetUpSubSchurs(PC);
 /* sub schurs */
 PetscErrorCode PCBDDCSubSchursCreate(PCBDDCSubSchurs*);
 PetscErrorCode PCBDDCSubSchursInit(PCBDDCSubSchurs,IS,IS,PCBDDCGraph,ISLocalToGlobalMapping);
-PetscErrorCode PCBDDCSubSchursDestroy(PCBDDCSubSchurs*);
 PetscErrorCode PCBDDCSubSchursReset(PCBDDCSubSchurs);
-PetscErrorCode PCBDDCSubSchursSetUp(PCBDDCSubSchurs,Mat,Mat,PetscInt[],PetscInt[],PetscInt,PetscBool,PetscBool,PetscBool);
+PetscErrorCode PCBDDCSubSchursSetUp(PCBDDCSubSchurs,Mat,Mat,PetscBool,PetscInt[],PetscInt[],PetscInt,Vec,PetscBool,PetscBool,PetscBool,PetscInt,PetscInt[],IS[],Mat,IS);
 
 #endif
 

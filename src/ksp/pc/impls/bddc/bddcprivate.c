@@ -4,6 +4,55 @@
 #include <petscblaslapack.h>
 #include <petsc/private/sfimpl.h>
 
+/* the near-null space of BDDC carries information on quadrature weights,
+   and these can be collinear -> so cheat with MatNullSpaceCreate
+   and create a suitable set of basis vectors first */
+#undef __FUNCT__
+#define __FUNCT__ "PCBDDCNullSpaceCreate"
+PetscErrorCode PCBDDCNullSpaceCreate(MPI_Comm comm, PetscBool has_const, PetscInt nvecs, Vec quad_vecs[], MatNullSpace *nnsp)
+{
+  PetscErrorCode ierr;
+  PetscInt       i;
+
+  PetscFunctionBegin;
+  for (i=0;i<nvecs;i++) {
+    PetscInt first,last;
+
+    ierr = VecGetOwnershipRange(quad_vecs[i],&first,&last);CHKERRQ(ierr);
+    if (last-first < 2*nvecs && has_const) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Not implemented");
+    if (i>=first && i < last) {
+      PetscScalar *data;
+      ierr = VecGetArray(quad_vecs[i],&data);CHKERRQ(ierr);
+      if (!has_const) {
+        data[i-first] = 1.;
+      } else {
+        data[2*i-first] = 1./PetscSqrtReal(2.);
+        data[2*i-first+1] = -1./PetscSqrtReal(2.);
+      }
+      ierr = VecRestoreArray(quad_vecs[i],&data);CHKERRQ(ierr);
+    }
+    ierr = PetscObjectStateIncrease((PetscObject)quad_vecs[i]);CHKERRQ(ierr);
+  }
+  ierr = MatNullSpaceCreate(comm,has_const,nvecs,quad_vecs,nnsp);CHKERRQ(ierr);
+  for (i=0;i<nvecs;i++) { /* reset vectors */
+    PetscInt first,last;
+    ierr = VecGetOwnershipRange(quad_vecs[i],&first,&last);CHKERRQ(ierr);
+    if (i>=first && i < last) {
+      PetscScalar *data;
+      ierr = VecGetArray(quad_vecs[i],&data);CHKERRQ(ierr);
+      if (!has_const) {
+        data[i-first] = 0.;
+      } else {
+        data[2*i-first] = 0.;
+        data[2*i-first+1] = 0.;
+      }
+      ierr = VecRestoreArray(quad_vecs[i],&data);CHKERRQ(ierr);
+    }
+    ierr = PetscObjectStateIncrease((PetscObject)quad_vecs[i]);CHKERRQ(ierr);
+  }
+  PetscFunctionReturn(0);
+}
+
 #undef __FUNCT__
 #define __FUNCT__ "PCBDDCComputeNoNetFlux"
 PetscErrorCode PCBDDCComputeNoNetFlux(Mat A, Mat divudotp, PetscBool transpose, IS vl2l, PCBDDCGraph graph, MatNullSpace *nnsp)
@@ -54,34 +103,11 @@ PetscErrorCode PCBDDCComputeNoNetFlux(Mat A, Mat divudotp, PetscBool transpose, 
   }
   ierr = VecDuplicateVecs(quad_vec,maxneighs,&quad_vecs);CHKERRQ(ierr);
   ierr = VecDestroy(&quad_vec);CHKERRQ(ierr);
+  ierr = PCBDDCNullSpaceCreate(PetscObjectComm((PetscObject)A),PETSC_FALSE,maxneighs,quad_vecs,nnsp);CHKERRQ(ierr);
   for (i=0;i<maxneighs;i++) {
-    PetscInt first,last;
-
     ierr = VecSetLocalToGlobalMapping(quad_vecs[i],map);CHKERRQ(ierr);
-    /* the near-null space fo BDDC carries information on quadrature weights,
-       and these can be collinear -> so cheat with MatNullSpaceCreate
-       and create a suitable set of basis vectors first */
-    ierr = VecGetOwnershipRange(quad_vecs[i],&first,&last);CHKERRQ(ierr);
-    if (i>=first && i < last) {
-      PetscScalar *data;
-      ierr = VecGetArray(quad_vecs[i],&data);CHKERRQ(ierr);
-      data[i-first] = 1.;
-      ierr = VecRestoreArray(quad_vecs[i],&data);CHKERRQ(ierr);
-    }
-    ierr = PetscObjectStateIncrease((PetscObject)quad_vecs[i]);CHKERRQ(ierr);
   }
-  ierr = MatNullSpaceCreate(PetscObjectComm((PetscObject)A),PETSC_FALSE,maxneighs,quad_vecs,nnsp);CHKERRQ(ierr);
-  for (i=0;i<maxneighs;i++) { /* reset vectors */
-    PetscInt first,last;
-    ierr = VecGetOwnershipRange(quad_vecs[i],&first,&last);CHKERRQ(ierr);
-    if (i>=first && i < last) {
-      PetscScalar *data;
-      ierr = VecGetArray(quad_vecs[i],&data);CHKERRQ(ierr);
-      data[i-first] = 0.;
-      ierr = VecRestoreArray(quad_vecs[i],&data);CHKERRQ(ierr);
-    }
-    ierr = PetscObjectStateIncrease((PetscObject)quad_vecs[i]);CHKERRQ(ierr);
-  }
+
   /* compute local quad vec */
   ierr = MatISGetLocalMat(divudotp,&loc_divudotp);CHKERRQ(ierr);
   if (!transpose) {
@@ -116,7 +142,6 @@ PetscErrorCode PCBDDCComputeNoNetFlux(Mat A, Mat divudotp, PetscBool transpose, 
     idx = -(idx+1);
     ierr = VecSetValuesLocal(quad_vecs[idx],nn,idxs,vals,INSERT_VALUES);CHKERRQ(ierr);
     ierr = ISRestoreIndices(faces[i],&idxs);CHKERRQ(ierr);
-    ierr = ISDestroy(&faces[i]);CHKERRQ(ierr);
   }
   for (i=0;i<ne;i++) {
     const PetscInt    *idxs;
@@ -129,10 +154,8 @@ PetscErrorCode PCBDDCComputeNoNetFlux(Mat A, Mat divudotp, PetscBool transpose, 
     idx = -(idx+1);
     ierr = VecSetValuesLocal(quad_vecs[idx],nn,idxs,vals,INSERT_VALUES);CHKERRQ(ierr);
     ierr = ISRestoreIndices(edges[i],&idxs);CHKERRQ(ierr);
-    ierr = ISDestroy(&edges[i]);CHKERRQ(ierr);
   }
-  ierr = PetscFree(edges);CHKERRQ(ierr);
-  ierr = PetscFree(faces);CHKERRQ(ierr);
+  ierr = PCBDDCGraphRestoreCandidatesIS(graph,&nf,&faces,&ne,&edges,NULL);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(vins,&array);CHKERRQ(ierr);
   if (vl2l) {
     ierr = VecRestoreSubVector(v,vl2l,&vins);CHKERRQ(ierr);
@@ -774,7 +797,7 @@ PetscErrorCode PCBDDCBenignDetectSaddlePoint(PC pc, IS *zerodiaglocal)
     ierr = ISLocalToGlobalMappingGetInfo(pc->pmat->rmap->mapping,&n_neigh,&neigh,&n_shared,&shared);CHKERRQ(ierr);
     ierr = PetscCalloc1(n,&iwork);CHKERRQ(ierr);
     ierr = PetscMalloc1(n,&interior_dofs);CHKERRQ(ierr);
-    for (i=0;i<n_neigh;i++)
+    for (i=1;i<n_neigh;i++)
       for (j=0;j<n_shared[i];j++)
           iwork[shared[i][j]] += 1;
     for (i=0;i<n;i++)
@@ -3697,7 +3720,7 @@ PetscErrorCode PCBDDCConstraintsSetUp(PC pc)
     if (pcbddc->dbg_flag && !pcbddc->sub_schurs) {
       PetscInt nv;
 
-      ierr = PCBDDCGraphASCIIView(pcbddc->mat_graph,pcbddc->dbg_flag-1,pcbddc->dbg_viewer);CHKERRQ(ierr);
+      ierr = PCBDDCGraphASCIIView(pcbddc->mat_graph,pcbddc->dbg_flag,pcbddc->dbg_viewer);CHKERRQ(ierr);
       ierr = ISGetSize(ISForVertices,&nv);CHKERRQ(ierr);
       ierr = PetscViewerASCIIPushSynchronized(pcbddc->dbg_viewer);CHKERRQ(ierr);
       ierr = PetscViewerASCIISynchronizedPrintf(pcbddc->dbg_viewer,"--------------------------------------------------------------\n");CHKERRQ(ierr);
@@ -4780,7 +4803,7 @@ PetscErrorCode PCBDDCAnalyzeInterface(PC pc)
   PetscInt               ierr,i,N;
 
   PetscFunctionBegin;
-  if (pcbddc->graphanalyzed) PetscFunctionReturn(0);
+  if (pcbddc->graphanalyzed && !pcbddc->recompute_topography) PetscFunctionReturn(0);
   /* Reset previously computed graph */
   ierr = PCBDDCGraphReset(pcbddc->mat_graph);CHKERRQ(ierr);
   /* Init local Graph struct */
@@ -6629,7 +6652,7 @@ PetscErrorCode PCBDDCInitSubSchurs(PC pc)
     ierr = ISGetIndices(verticesIS,(const PetscInt**)&idxs);CHKERRQ(ierr);
     ierr = ISCreateGeneral(PetscObjectComm((PetscObject)pc),vsize,idxs,PETSC_COPY_VALUES,&verticescomm);CHKERRQ(ierr);
     ierr = ISRestoreIndices(verticesIS,(const PetscInt**)&idxs);CHKERRQ(ierr);
-    ierr = ISDestroy(&verticesIS);CHKERRQ(ierr);
+    ierr = PCBDDCGraphRestoreCandidatesIS(pcbddc->mat_graph,NULL,NULL,NULL,NULL,&verticesIS);CHKERRQ(ierr);
     ierr = PCBDDCGraphCreate(&graph);CHKERRQ(ierr);
     ierr = PCBDDCGraphInit(graph,pcbddc->mat_graph->l2gmap,pcbddc->mat_graph->nvtxs_global);CHKERRQ(ierr);
     ierr = PCBDDCGraphSetUp(graph,pcbddc->mat_graph->custom_minimal_size,NULL,pcbddc->DirichletBoundariesLocal,0,NULL,verticescomm);CHKERRQ(ierr);
@@ -6642,10 +6665,9 @@ PetscErrorCode PCBDDCInitSubSchurs(PC pc)
   if (pcbddc->dbg_flag) {
     IS       vertices;
     PetscInt nv,nedges,nfaces;
-    ierr = PCBDDCGraphASCIIView(graph,pcbddc->dbg_flag-1,pcbddc->dbg_viewer);CHKERRQ(ierr);
+    ierr = PCBDDCGraphASCIIView(graph,pcbddc->dbg_flag,pcbddc->dbg_viewer);CHKERRQ(ierr);
     ierr = PCBDDCGraphGetCandidatesIS(graph,&nfaces,NULL,&nedges,NULL,&vertices);CHKERRQ(ierr);
     ierr = ISGetSize(vertices,&nv);CHKERRQ(ierr);
-    ierr = ISDestroy(&vertices);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPushSynchronized(pcbddc->dbg_viewer);CHKERRQ(ierr);
     ierr = PetscViewerASCIISynchronizedPrintf(pcbddc->dbg_viewer,"--------------------------------------------------------------\n");CHKERRQ(ierr);
     ierr = PetscViewerASCIISynchronizedPrintf(pcbddc->dbg_viewer,"Subdomain %04d got %02d local candidate vertices (%d)\n",PetscGlobalRank,nv,pcbddc->use_vertices);CHKERRQ(ierr);
@@ -6653,6 +6675,7 @@ PetscErrorCode PCBDDCInitSubSchurs(PC pc)
     ierr = PetscViewerASCIISynchronizedPrintf(pcbddc->dbg_viewer,"Subdomain %04d got %02d local candidate faces    (%d)\n",PetscGlobalRank,nfaces,pcbddc->use_faces);CHKERRQ(ierr);
     ierr = PetscViewerFlush(pcbddc->dbg_viewer);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPopSynchronized(pcbddc->dbg_viewer);CHKERRQ(ierr);
+    ierr = PCBDDCGraphRestoreCandidatesIS(graph,&nfaces,NULL,&nedges,NULL,&vertices);CHKERRQ(ierr);
   }
 
   /* sub_schurs init */

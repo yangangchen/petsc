@@ -85,6 +85,7 @@ typedef struct {
   PetscBool           recompute_topography;
   PetscBool           graphanalyzed;
   PCBDDCGraph         mat_graph;
+  PetscInt            graphmaxcount;
   MatNullSpace        onearnullspace;
   PetscObjectState    *onearnullvecs_state;
   PetscBool           NullSpace_corr[4];
@@ -118,6 +119,11 @@ typedef struct {
   Mat       divudotp;
   PetscBool divudotp_trans;
   IS        divudotp_vl2l;
+
+  /* nedelec */
+  Mat       discretegradient;
+  PetscInt  nedorder;
+  PetscBool conforming;
 
   /* local disconnected subdomains */
   PetscBool detect_disconnected;

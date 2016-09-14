@@ -2693,7 +2693,7 @@ runex204_2:
 	   ${RM} -f ex204.tmp	 
 
 runex205:
-	  -@${MPIEXEC} -n 1 ./ex205 -malloc_dump > ex205.tmp 2>&1; \
+	-@${MPIEXEC} -n 1 ./ex205 -malloc_dump > ex205.tmp 2>&1; \
 	   ${DIFF} output/ex205.out ex205.tmp || printf "${PWD}\nPossible problem with ex205, diffs above\n=========================================\n"; \
 	   ${RM} -f ex205.tmp
 

@@ -116,6 +116,7 @@ static PetscErrorCode PCView_BDDC(PC pc,PetscViewer viewer)
     } else {
       ierr = PetscViewerASCIIPrintf(viewer,"  BDDC: Connectivity graph topological dimension: 3\n");CHKERRQ(ierr);
     }
+    ierr = PetscViewerASCIIPrintf(viewer,"  BDDC: Graph max count: %d\n",pcbddc->graphmaxcount);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(viewer,"  BDDC: Use vertices: %d (vertex size %d)\n",pcbddc->use_vertices,pcbddc->vertex_size);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(viewer,"  BDDC: Use edges: %d\n",pcbddc->use_edges);CHKERRQ(ierr);
     ierr = PetscViewerASCIIPrintf(viewer,"  BDDC: Use faces: %d\n",pcbddc->use_faces);CHKERRQ(ierr);
@@ -211,7 +212,7 @@ static PetscErrorCode PCView_BDDC(PC pc,PetscViewer viewer)
 
 #undef __FUNCT__
 #define __FUNCT__ "PCBDDCSetDiscreteGradient_BDDC"
-static PetscErrorCode PCBDDCSetDiscreteGradient_BDDC(PC pc, Mat G, PetscInt order, PetscInt field, PetscBool conforming)
+static PetscErrorCode PCBDDCSetDiscreteGradient_BDDC(PC pc, Mat G, PetscInt order, PetscInt field, PetscBool global, PetscBool conforming)
 {
   PC_BDDC        *pcbddc = (PC_BDDC*)pc->data;
   PetscErrorCode ierr;
@@ -221,8 +222,9 @@ static PetscErrorCode PCBDDCSetDiscreteGradient_BDDC(PC pc, Mat G, PetscInt orde
   ierr = MatDestroy(&pcbddc->discretegradient);CHKERRQ(ierr);
   pcbddc->discretegradient = G;
   pcbddc->nedorder         = order > 0 ? order : -order;
-  pcbddc->conforming       = conforming;
   pcbddc->nedfield         = field;
+  pcbddc->nedglobal        = global;
+  pcbddc->conforming       = conforming;
   PetscFunctionReturn(0);
 }
 
@@ -238,27 +240,33 @@ static PetscErrorCode PCBDDCSetDiscreteGradient_BDDC(PC pc, Mat G, PetscInt orde
 .  G          - the discrete gradient matrix (should be in AIJ format)
 .  order      - the order of the Nedelec space (1 for the lowest order)
 .  field      - the field id of the Nedelec dofs (not used if the fields have not been specified)
+.  global     - the type of global ordering for the rows of G
 -  conforming - whether the mesh is conforming or not
 
    Level: advanced
 
    Notes: The discrete gradient matrix G is used to analyze the subdomain edges, and it should not contain any zero entry.
           For variable order spaces, the order should be set to zero.
-          The discrete gradient matrix is modified by PCBDDC.
+          If global is true, the rows of G should be given in global ordering for the whole dofs;
+          if false, the ordering should be global for the Nedelec field.
+          In the latter case, it should hold gid[i] < gid[j] iff geid[i] < geid[j], with gid the global orderding for all the dofs
+          and geid the one for the Nedelec field.
 
 .seealso: PCBDDC,PCBDDCSetDofsSplitting(),PCBDDCSetDofsSplittingLocal()
 @*/
-PetscErrorCode PCBDDCSetDiscreteGradient(PC pc, Mat G, PetscInt order, PetscInt field, PetscBool conforming)
+PetscErrorCode PCBDDCSetDiscreteGradient(PC pc, Mat G, PetscInt order, PetscInt field, PetscBool global, PetscBool conforming)
 {
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pc,PC_CLASSID,1);
   PetscValidHeaderSpecific(G,MAT_CLASSID,2);
-  PetscCheckSameComm(pc,1,G,2);
   PetscValidLogicalCollectiveInt(pc,order,3);
-  PetscValidLogicalCollectiveBool(pc,conforming,4);
-  ierr = PetscTryMethod(pc,"PCBDDCSetDiscreteGradient_C",(PC,Mat,PetscInt,PetscInt,PetscBool),(pc,G,order,field,conforming));CHKERRQ(ierr);
+  PetscValidLogicalCollectiveInt(pc,field,4);
+  PetscValidLogicalCollectiveBool(pc,global,5);
+  PetscValidLogicalCollectiveBool(pc,conforming,6);
+  PetscCheckSameComm(pc,1,G,2);
+  ierr = PetscTryMethod(pc,"PCBDDCSetDiscreteGradient_C",(PC,Mat,PetscInt,PetscInt,PetscBool,PetscBool),(pc,G,order,field,global,conforming));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -986,6 +994,10 @@ static PetscErrorCode PCBDDCSetLocalAdjacencyGraph_BDDC(PC pc, PetscInt nvtxs,co
 
   PetscFunctionBegin;
   if (!nvtxs) {
+    if (copymode == PETSC_OWN_POINTER) {
+      ierr = PetscFree(xadj);CHKERRQ(ierr);
+      ierr = PetscFree(adjncy);CHKERRQ(ierr);
+    }
     ierr = PCBDDCGraphResetCSR(mat_graph);CHKERRQ(ierr);
     PetscFunctionReturn(0);
   }
@@ -1366,7 +1378,6 @@ static PetscErrorCode PCPreSolve_BDDC(PC pc, KSP ksp, Vec rhs, Vec x)
       /* store the original rhs if not done earlier */
       if (save_rhs) {
         ierr = VecSwap(rhs,pcbddc->original_rhs);CHKERRQ(ierr);
-        save_rhs = PETSC_FALSE;
       }
       if (pcbddc->rhs_change) {
         ierr = MatMultAdd(pc->mat,pcbddc->benign_vec,rhs,rhs);CHKERRQ(ierr);
@@ -1507,6 +1518,7 @@ PetscErrorCode PCSetUp_BDDC(PC pc)
   /* For BDDC we need to define a local "Neumann" problem different to that defined in PCISSetup
      Also, BDDC builds its own KSP for the Dirichlet problem */
   if (pc->setupcalled && pc->flag != SAME_NONZERO_PATTERN) pcbddc->recompute_topography = PETSC_TRUE;
+  if (pcbddc->recompute_topography) pcbddc->graphanalyzed = PETSC_FALSE;
   computeconstraintsmatrix = PETSC_FALSE;
 
   /* check parameters' compatibility */
@@ -1617,7 +1629,7 @@ PetscErrorCode PCSetUp_BDDC(PC pc)
   }
 
   /* Analyze interface */
-  if (pcbddc->recompute_topography) {
+  if (!pcbddc->graphanalyzed) {
     ierr = PCBDDCAnalyzeInterface(pc);CHKERRQ(ierr);
     computeconstraintsmatrix = PETSC_TRUE;
     if (pcbddc->adaptive_selection && !pcbddc->use_deluxe_scaling && !pcbddc->mat_graph->twodim) {
@@ -1914,11 +1926,7 @@ PetscErrorCode PCApply_BDDC(PC pc,Vec r,Vec z)
   }
 
   if (pcbddc->ChangeOfBasisMatrix) {
-    Vec swap;
-
-    swap = r;
-    r = pcbddc->work_change;
-    pcbddc->work_change = swap;
+    pcbddc->work_change = r;
     ierr = VecCopy(z,pcbddc->work_change);CHKERRQ(ierr);
     ierr = MatMult(pcbddc->ChangeOfBasisMatrix,pcbddc->work_change,z);CHKERRQ(ierr);
   }
@@ -2072,11 +2080,7 @@ PetscErrorCode PCApplyTranspose_BDDC(PC pc,Vec r,Vec z)
     ierr = PCBDDCBenignGetOrSetP0(pc,z,PETSC_FALSE);CHKERRQ(ierr);
   }
   if (pcbddc->ChangeOfBasisMatrix) {
-    Vec swap;
-
-    swap = r;
-    r = pcbddc->work_change;
-    pcbddc->work_change = swap;
+    pcbddc->work_change = r;
     ierr = VecCopy(z,pcbddc->work_change);CHKERRQ(ierr);
     ierr = MatMult(pcbddc->ChangeOfBasisMatrix,pcbddc->work_change,z);CHKERRQ(ierr);
   }
@@ -2603,6 +2607,10 @@ PETSC_EXTERN PetscErrorCode PCCreate_BDDC(PC pc)
   pcbddc->benign_p0_lidx             = NULL;
   pcbddc->benign_p0_gidx             = NULL;
   pcbddc->benign_null                = PETSC_FALSE;
+
+  /* Nedelec */
+  pcbddc->nedfield  = -1;
+  pcbddc->nedglobal = PETSC_TRUE;
 
   /* create local graph structure */
   ierr = PCBDDCGraphCreate(&pcbddc->mat_graph);CHKERRQ(ierr);

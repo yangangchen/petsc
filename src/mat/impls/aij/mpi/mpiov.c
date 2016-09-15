@@ -1154,9 +1154,11 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,const IS isrow,const 
   tag0 = ((PetscObject)C)->tag;
   size = c->size;
   rank = c->rank;
+#if 0
   if (!rank) {
     printf("MatGetSubMatrices_MPIAIJ_single_Local, reuse %d\n",scall);
   }
+#endif
 
   /* Get some new tags to keep the communication clean */
   ierr = PetscObjectGetNewTag((PetscObject)C,&tag1);CHKERRQ(ierr);
@@ -1209,9 +1211,9 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,const IS isrow,const 
   ierr = PetscInfo2(0,"Number of outgoing messages %D Total message length %D\n",nrqs,msz);CHKERRQ(ierr);
 
   /* Determine nrqr, the number of messages to expect, their lengths, from from-ids */
-  // if w2[i]=1, a message of length w1[i] will be sent to proc[i]; 
+  /* if w2[i]=1, a message of length w1[i] will be sent to proc[i]; */
   ierr = PetscGatherNumberOfMessages(comm,w2,w1,&nrqr);CHKERRQ(ierr);
-  // nrqs: nsend; nrqr: nrecv; w1: send message length; onodes1: recv id; olengths1: recv message length
+  /* nrqs: nsend; nrqr: nrecv; w1: send message length; onodes1: recv id; olengths1: recv message length */
   ierr = PetscGatherMessageLengths(comm,nrqs,nrqr,w1,&onodes1,&olengths1);CHKERRQ(ierr);
 
   /* Now post the Irecvs corresponding to these messages */

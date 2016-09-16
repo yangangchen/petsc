@@ -1361,14 +1361,14 @@ PetscErrorCode MatSetValuesRowLocal(Mat mat,PetscInt row,const PetscScalar v[])
    Input Parameters:
 +  mat - the matrix
 .  row - the (block) row to set
--  v - a logically two-dimensional array of values
+-  v - a logically two-dimensional (column major) array of values for  block matrices with blocksize larger than one, otherwise a one dimensional array of values
 
    Notes:
    The values, v, are column-oriented for the block version.
 
    All the nonzeros in the row must be provided
 
-   THE MATRIX MUSAT HAVE PREVIOUSLY HAD ITS COLUMN INDICES SET. IT IS RARE THAT THIS ROUTINE IS USED, usually MatSetValues() is used.
+   THE MATRIX MUST HAVE PREVIOUSLY HAD ITS COLUMN INDICES SET. IT IS RARE THAT THIS ROUTINE IS USED, usually MatSetValues() is used.
 
    The row must belong to this process
 
@@ -10439,14 +10439,11 @@ PetscErrorCode MatTransposeColoringDestroy(MatTransposeColoring *c)
     Output Parameter:
 .   Btdense - dense matrix B^T
 
-    Options Database Keys:
-+    -mat_transpose_coloring_view - Activates basic viewing or coloring
-.    -mat_transpose_coloring_view_draw - Activates drawing of coloring
--    -mat_transpose_coloring_view_info - Activates viewing of coloring info
+    Level: advanced
 
-    Level: intermediate
+     Notes: These are used internally for some implementations of MatRARt()
 
-.seealso: MatTransposeColoringCreate(), MatTransposeColoringDestroy()
+.seealso: MatTransposeColoringCreate(), MatTransposeColoringDestroy(), MatTransColoringApplyDenToSp()
 
 .keywords: coloring
 @*/
@@ -10481,12 +10478,9 @@ PetscErrorCode MatTransColoringApplySpToDen(MatTransposeColoring coloring,Mat B,
     Output Parameter:
 .   Csp - sparse matrix
 
-    Options Database Keys:
-+    -mat_multtranspose_coloring_view - Activates basic viewing or coloring
-.    -mat_multtranspose_coloring_view_draw - Activates drawing of coloring
--    -mat_multtranspose_coloring_view_info - Activates viewing of coloring info
+    Level: advanced
 
-    Level: intermediate
+     Notes: These are used internally for some implementations of MatRARt()
 
 .seealso: MatTransposeColoringCreate(), MatTransposeColoringDestroy(), MatTransColoringApplySpToDen()
 
@@ -10522,8 +10516,8 @@ PetscErrorCode MatTransColoringApplyDenToSp(MatTransposeColoring matcoloring,Mat
 
     Level: intermediate
 
-.seealso: MatTransposeColoringDestroy(), MatTransposeColoringSetFromOptions(), MatTransColoringApplySpToDen(),
-           MatTransColoringApplyDenToSp(), MatTransposeColoringView(),
+.seealso: MatTransposeColoringDestroy(),  MatTransColoringApplySpToDen(),
+           MatTransColoringApplyDenToSp()
 @*/
 PetscErrorCode MatTransposeColoringCreate(Mat mat,ISColoring iscoloring,MatTransposeColoring *color)
 {

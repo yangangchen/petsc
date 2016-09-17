@@ -1216,9 +1216,9 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
   ierr = PetscInfo2(0,"Number of outgoing messages %D Total message length %D\n",nrqs,msz);CHKERRQ(ierr);
 
   /* Determine nrqr, the number of messages to expect, their lengths, from from-ids */
-  // if w2[i]=1, a message of length w1[i] will be sent to proc[i]; 
+  /* if w2[i]=1, a message of length w1[i] will be sent to proc[i]; */
   ierr = PetscGatherNumberOfMessages(comm,w2,w1,&nrqr);CHKERRQ(ierr);
-  // nrqs: nsend; nrqr: nrecv; w1: send message length; onodes1: recv id; olengths1: recv message length
+  /* nrqs: nsend; nrqr: nrecv; w1: send message length; onodes1: recv id; olengths1: recv message length */
   ierr = PetscGatherMessageLengths(comm,nrqs,nrqr,w1,&onodes1,&olengths1);CHKERRQ(ierr);
 
   /* Now post the Irecvs corresponding to these messages */

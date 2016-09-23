@@ -214,7 +214,7 @@
       lambda_min  = 0.0
       user%lambda = 6.0
       ione = 1
-      nfour = -4
+      nfour = 4
       call PetscOptionsGetReal(PETSC_NULL_OBJECT,PETSC_NULL_CHARACTER,'-par',user%lambda,flg,ierr);CHKERRQ(ierr)
       if (user%lambda .ge. lambda_max .or. user%lambda .le. lambda_min) then
          if (user%rank .eq. 0) write(6,*) 'Lambda is out of range'
@@ -235,17 +235,11 @@
 ! This really needs only the star-type stencil, but we use the box
 ! stencil temporarily.
       call DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_BOX,nfour,nfour,PETSC_DECIDE,PETSC_DECIDE,ione,ione,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,da,ierr);CHKERRQ(ierr)
+      call DMSetFromOptions(da,ierr);CHKERRQ(ierr)
+      call DMSetUp(da,ierr);CHKERRQ(ierr)
+
       call DMDAGetInfo(da,PETSC_NULL_INTEGER,user%mx,user%my,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,   &
      &                 PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,ierr);CHKERRQ(ierr)
-      call DMSetFromOptions(da,ierr)
-      call DMSetUp(da,ierr)
-      call DMDAGetInfo(da,PETSC_NULL_INTEGER,user%mx,user%my,           &
-     &               PETSC_NULL_INTEGER,                                &
-     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
-     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
-     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
-     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
-     &               PETSC_NULL_INTEGER,ierr)
 
 !
 !   Visualize the distribution of the array across the processors

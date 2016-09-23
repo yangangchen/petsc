@@ -78,7 +78,7 @@ program main
   PetscScalar    shell_shift
   Mat            A
 
-  im11 = -11
+  im11 = 11
   i2   = 2
   zero = 0.0
   one = 1.0
@@ -93,9 +93,9 @@ program main
   ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   !  Create distributed array (DMDA) to manage parallel grid and vectors
   ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  call DMDACreate1d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,im11,i2,i2,PETSC_NULL_INTEGER,da,ierr);
-  call DMSetFromOptions(da,ierr)
-  call DMSetUp(da,ierr)
+  call DMDACreate1d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,im11,i2,i2,PETSC_NULL_INTEGER,da,ierr);CHKERRQ(ierr)
+  call DMSetFromOptions(da,ierr);CHKERRQ(ierr)
+  call DMSetUp(da,ierr);CHKERRQ(ierr)
 
   ! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   !    Extract global vectors from DMDA;

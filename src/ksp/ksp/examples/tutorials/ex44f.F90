@@ -24,6 +24,13 @@
 
       call ComputeRHS(da,f,ierr);CHKERRQ(ierr)
       call ComputeMatrix(da,J,ierr);CHKERRQ(ierr)
+      call DMDACreate1d(MPI_COMM_WORLD,DM_BOUNDARY_NONE,8,1,1,PETSC_NULL_INTEGER,da,ierr)
+      call DMSetFromOptions(da,ierr)
+      call DMSetUp(da,ierr)
+      call DMCreateGlobalVector(da,x,ierr)
+      call VecDuplicate(x,f,ierr)
+      call DMSetMatType(da,MATAIJ,ierr)
+      call DMCreateMatrix(da,J,ierr)
 
       call KSPCreate(MPI_COMM_WORLD,ksp,ierr);CHKERRQ(ierr)
       call KSPSetOperators(ksp,J,J,ierr);CHKERRQ(ierr)

@@ -237,6 +237,15 @@
       call DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_BOX,nfour,nfour,PETSC_DECIDE,PETSC_DECIDE,ione,ione,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,da,ierr);CHKERRQ(ierr)
       call DMDAGetInfo(da,PETSC_NULL_INTEGER,user%mx,user%my,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,   &
      &                 PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,ierr);CHKERRQ(ierr)
+      call DMSetFromOptions(da,ierr)
+      call DMSetUp(da,ierr)
+      call DMDAGetInfo(da,PETSC_NULL_INTEGER,user%mx,user%my,           &
+     &               PETSC_NULL_INTEGER,                                &
+     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
+     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
+     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
+     &               PETSC_NULL_INTEGER,PETSC_NULL_INTEGER,             &
+     &               PETSC_NULL_INTEGER,ierr)
 
 !
 !   Visualize the distribution of the array across the processors

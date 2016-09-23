@@ -97,6 +97,12 @@ typedef struct {
 typedef struct { /* used by MatGetSubMatrices_MPIAIJ_single_Local() */
   PetscInt   nrqs;
   PetscInt   **rbuf2,**rbuf3;
+  MPI_Status *r_status2;
+
+  PetscInt   **sbuf1;
+  PetscInt   **ptr;
+  PetscInt   *tmp;
+  PetscInt   *ctr;
 
   PetscErrorCode (*destroy)(Mat);
 } Mat_SubMat;

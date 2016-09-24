@@ -1382,9 +1382,9 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
 
   /*  Receive buffer sizes */
   ierr = PetscMalloc1(nrqs+1,&rbuf4);CHKERRQ(ierr);
-  ierr = PetscMalloc1(nrqs+1,&r_waits3);CHKERRQ(ierr);
   ierr = PetscMalloc1(nrqs+1,&r_waits4);CHKERRQ(ierr);
   if (scall == MAT_INITIAL_MATRIX) {
+    ierr = PetscMalloc1(nrqs+1,&r_waits3);CHKERRQ(ierr);
     ierr = PetscMalloc1(nrqs+1,&r_status2);CHKERRQ(ierr);
   }
 
@@ -1599,10 +1599,7 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
     PetscInt *rbuf2_i,*rbuf3_i,*sbuf1_i;
     /* recv a->j is done */
     ierr    = MPI_Waitall(nrqs,r_waits3,r_status3);CHKERRQ(ierr);
-    //if (scall == MAT_INITIAL_MATRIX) {
-    for (tmp2=0; tmp2<nrqs; tmp2++) {
-      //ierr    = MPI_Waitany(nrqs,r_waits3,&idex2,r_status3+tmp2);CHKERRQ(ierr);
-      idex2   = tmp2;
+    for (idex2=0; idex2<nrqs; idex2++) {
       proc    = pa[idex2];
       sbuf1_i = sbuf1[proc];
       jmax    = sbuf1_i[0];
@@ -1630,22 +1627,15 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
 #else
               tcol = cmap[rbuf3_i[ct2]];
 #endif
-              if (scall == MAT_INITIAL_MATRIX) {
-                if (tcol) lens[row]++;
-              }
+              if (tcol) lens[row]++;
             } else { /* allcolumns */
-              if (scall == MAT_INITIAL_MATRIX) {
-                lens[row]++; /* lens[row] += nnz ? */
-              }
+              lens[row]++; /* lens[row] += nnz ? */
             }
           }
         }
       }
     }
-  }
-  ierr = PetscFree(r_waits3);CHKERRQ(ierr);
-
-  if (scall == MAT_INITIAL_MATRIX) {
+    ierr = PetscFree(r_waits3);CHKERRQ(ierr);
     ierr = MPI_Waitall(nrqr,s_waits3,s_status3);CHKERRQ(ierr);
     ierr = PetscFree(s_status3);CHKERRQ(ierr);
     ierr = PetscFree2(s_waits3,r_status3);CHKERRQ(ierr);

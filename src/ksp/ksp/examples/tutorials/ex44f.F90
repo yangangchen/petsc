@@ -23,7 +23,8 @@
       call VecDuplicate(x,f,ierr);CHKERRQ(ierr)
       call DMSetMatType(da,MATAIJ,ierr);CHKERRQ(ierr)
       call DMCreateMatrix(da,J,ierr);CHKERRQ(ierr)
-
+      call ComputeMatrix(da,J,ierr)
+      call ComputeRHS(da,f,ierr)
       call KSPCreate(MPI_COMM_WORLD,ksp,ierr);CHKERRQ(ierr)
       call KSPSetOperators(ksp,J,J,ierr);CHKERRQ(ierr)
       call KSPSetFromOptions(ksp,ierr);CHKERRQ(ierr)

@@ -95,17 +95,17 @@ typedef struct {
 } Mat_SeqAIJ_Inode;
 
 typedef struct { /* used by MatGetSubMatrices_MPIAIJ_single_Local() */
-  PetscInt   nrqs;
-  PetscInt   **rbuf2,**rbuf3;
+  PetscInt   nrqs,nrqr;
+  PetscInt   **rbuf1,**rbuf2,**rbuf3,**sbuf1,**sbuf2;
   MPI_Status *r_status2;
 
-  PetscInt   **sbuf1;
   PetscInt   **ptr;
   PetscInt   *tmp;
   PetscInt   *ctr;
 
   PetscInt   *pa; /* proc array */
-
+  PetscInt   *req_size,*req_source;
+  
   PetscErrorCode (*destroy)(Mat);
 } Mat_SubMat;
 

@@ -1132,6 +1132,14 @@ PetscErrorCode MatDestroy_MPIAIJ_MatGetSubmatrices(Mat C)
 
   ierr = PetscFree(submatj->r_status2);CHKERRQ(ierr);
   ierr = PetscFree(submatj->rbuf2);CHKERRQ(ierr);
+  for (i=0; i<submatj->nrqr; ++i) {
+    ierr = PetscFree(submatj->sbuf2[i]);CHKERRQ(ierr);
+  }
+  ierr = PetscFree3(submatj->sbuf2,submatj->req_size,submatj->req_source);CHKERRQ(ierr);
+
+  ierr = PetscFree(submatj->rbuf1[0]);CHKERRQ(ierr);
+  ierr = PetscFree(submatj->rbuf1);CHKERRQ(ierr);
+
   for (i=0; i<submatj->nrqs; ++i) {
     ierr = PetscFree(submatj->rbuf3[i]);CHKERRQ(ierr);
   }
@@ -1210,16 +1218,21 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
     if ((submat->rmap->n != nrow) || (submat->cmap->n != ncol)) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Cannot reuse matrix. wrong size");
     Mat_SubMat *submatj= mat->submatj;
     nrqs      = submatj->nrqs;
+    nrqr      = submatj->nrqr;
+    rbuf1     = submatj->rbuf1;
     rbuf2     = submatj->rbuf2;
     rbuf3     = submatj->rbuf3;
     r_status2 = submatj->r_status2;
 
     sbuf1     = submatj->sbuf1;
+    sbuf2     = submatj->sbuf2;
     ptr       = submatj->ptr;
     tmp       = submatj->tmp;
     ctr       = submatj->ctr;
 
     pa        = submatj->pa;
+    req_size  = submatj->req_size;
+    req_source = submatj->req_source;
   }
 
   /* evaluate communication - mesg to who, length of mesg, and buffer space
@@ -1266,28 +1279,31 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
   /* nrqs: nsend; nrqr: nrecv; w1: send message length; onodes1: recv id; olengths1: recv message length */
   ierr = PetscGatherMessageLengths(comm,nrqs,nrqr,w1,&onodes1,&olengths1);CHKERRQ(ierr);
 
-  /* Now post the Irecvs corresponding to these messages */
-  ierr = PetscPostIrecvInt(comm,tag0,nrqr,onodes1,olengths1,&rbuf1,&r_waits1);CHKERRQ(ierr);
+  if (scall == MAT_INITIAL_MATRIX) {
+    /* Now post the Irecvs corresponding to these messages */
+    ierr = PetscPostIrecvInt(comm,tag0,nrqr,onodes1,olengths1,&rbuf1,&r_waits1);CHKERRQ(ierr);
+  }
 
   ierr = PetscFree(onodes1);CHKERRQ(ierr);
   ierr = PetscFree(olengths1);CHKERRQ(ierr);
 
   /* Allocate Memory for outgoing messages */
   if (scall == MAT_INITIAL_MATRIX) {
+
     ierr = PetscMalloc4(size,&sbuf1,size,&ptr,2*msz,&tmp,size,&ctr);CHKERRQ(ierr);
-  }
     ierr = PetscMemzero(sbuf1,size*sizeof(PetscInt*));CHKERRQ(ierr);
     ierr = PetscMemzero(ptr,size*sizeof(PetscInt*));CHKERRQ(ierr);
+  }
+  PetscInt *iptr = tmp,ict = 0;
 
-  {
-    PetscInt *iptr = tmp,ict = 0;
+  //if (scall == MAT_INITIAL_MATRIX) {
     for (i=0; i<nrqs; i++) {
       proc     = pa[i];
       iptr    += ict;
       sbuf1[proc] = iptr;
       ict      = w1[proc];
     }
-  }
+    //}
 
   /* Form the outgoing messages */
   /* Initialize the header space */
@@ -1297,6 +1313,7 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
     ierr           = PetscMemzero(sbuf1[proc]+1,2*w3[proc]*sizeof(PetscInt));CHKERRQ(ierr);
     ptr[proc]      = sbuf1[proc] + 2*w3[proc] + 1;
   }
+  //}
 
   /* Parse the isrow and copy data into outbuf */
   ierr   = PetscMemzero(ctr,size*sizeof(PetscInt));CHKERRQ(ierr);
@@ -1321,25 +1338,23 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
   }
 
   /*  Now  post the sends */
-  ierr = PetscMalloc1(nrqs+1,&s_waits1);CHKERRQ(ierr);
-  for (i=0; i<nrqs; ++i) {
-    proc = pa[i];
-    ierr = MPI_Isend(sbuf1[proc],w1[proc],MPIU_INT,proc,tag0,comm,s_waits1+i);CHKERRQ(ierr);
-  }
-
-  /* Post Receives to capture the buffer size */
   if (scall == MAT_INITIAL_MATRIX) {
-    ierr     = PetscMalloc1(nrqs+1,&r_waits2);CHKERRQ(ierr);
+    ierr = PetscMalloc1(nrqs+1,&s_waits1);CHKERRQ(ierr);
+    for (i=0; i<nrqs; ++i) {
+      proc = pa[i];
+      ierr = MPI_Isend(sbuf1[proc],w1[proc],MPIU_INT,proc,tag0,comm,s_waits1+i);CHKERRQ(ierr);
+    }
+
+    /* Post Receives to capture the buffer size */
+    ierr = PetscMalloc1(nrqs+1,&r_waits2);CHKERRQ(ierr);
     ierr = PetscMalloc1(nrqs+1,&rbuf2);CHKERRQ(ierr);
     ierr = PetscMalloc1(nrqs+1,&rbuf3);CHKERRQ(ierr);
-  }
 
-  if (scall == MAT_INITIAL_MATRIX) {
     rbuf2[0] = tmp + msz;
     for (i=1; i<nrqs; ++i) {
       rbuf2[i] = rbuf2[i-1]+w1[pa[i-1]];
     }
-  
+
     for (i=0; i<nrqs; ++i) {
       proc = pa[i];
       ierr = MPI_Irecv(rbuf2[i],w1[proc],MPIU_INT,proc,tag1,comm,r_waits2+i);CHKERRQ(ierr);
@@ -1349,17 +1364,18 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
   /* Send to other procs the buf size they should allocate */
 
   /* Receive messages*/
-  ierr = PetscMalloc1(nrqr+1,&s_waits2);CHKERRQ(ierr);
-  ierr = PetscMalloc1(nrqr+1,&r_status1);CHKERRQ(ierr);
-  ierr = PetscMalloc3(nrqr,&sbuf2,nrqr,&req_size,nrqr,&req_source);CHKERRQ(ierr);
-  {
+  if (scall == MAT_INITIAL_MATRIX) {
+    ierr = PetscMalloc1(nrqr+1,&s_waits2);CHKERRQ(ierr);
+    ierr = PetscMalloc1(nrqr+1,&r_status1);CHKERRQ(ierr);
+    ierr = PetscMalloc3(nrqr,&sbuf2,nrqr,&req_size,nrqr,&req_source);CHKERRQ(ierr);
+
     Mat_SeqAIJ *sA  = (Mat_SeqAIJ*)c->A->data,*sB = (Mat_SeqAIJ*)c->B->data;
     PetscInt   *sAi = sA->i,*sBi = sB->i,id,rstart = C->rmap->rstart;
     PetscInt   *sbuf2_i;
 
+    ierr = MPI_Waitall(nrqr,r_waits1,r_status1);CHKERRQ(ierr);
     for (i=0; i<nrqr; ++i) {
-      ierr = MPI_Waitany(nrqr,r_waits1,&idex,r_status1+i);CHKERRQ(ierr);
-
+      idex = i;
       req_size[idex] = 0;
       rbuf1_i        = rbuf1[idex];
       start          = 2*rbuf1_i[0] + 1;
@@ -1381,14 +1397,11 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
         ierr = MPI_Isend(sbuf2_i,end,MPIU_INT,req_source[idex],tag1,comm,s_waits2+i);CHKERRQ(ierr);
       }
     }
-  }
-  ierr = PetscFree(r_status1);CHKERRQ(ierr);
-  ierr = PetscFree(r_waits1);CHKERRQ(ierr);
-
-  /*  Receive buffer sizes */
-  ierr = PetscMalloc1(nrqs+1,&rbuf4);CHKERRQ(ierr);
-  ierr = PetscMalloc1(nrqs+1,&r_waits4);CHKERRQ(ierr);
-  if (scall == MAT_INITIAL_MATRIX) {
+   
+    ierr = PetscFree(r_status1);CHKERRQ(ierr);
+    ierr = PetscFree(r_waits1);CHKERRQ(ierr);
+    
+    /*  Receive buffer sizes */
     ierr = PetscMalloc1(nrqs+1,&r_waits3);CHKERRQ(ierr);
     ierr = PetscMalloc1(nrqs+1,&r_status2);CHKERRQ(ierr);
 
@@ -1401,28 +1414,28 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
     }
   }
 
+  ierr = PetscMalloc1(nrqs+1,&rbuf4);CHKERRQ(ierr);
+  ierr = PetscMalloc1(nrqs+1,&r_waits4);CHKERRQ(ierr);
   for (i=0; i<nrqs; ++i) {
     /* Post recv matrix values */
     ierr = PetscMalloc1(rbuf2[i][0]+1,&rbuf4[i]);CHKERRQ(ierr);
     ierr = MPI_Irecv(rbuf4[i],rbuf2[i][0],MPIU_SCALAR,r_status2[i].MPI_SOURCE,tag3,comm,r_waits4+i);CHKERRQ(ierr);
   }
 
-  /* Wait on sends1 and sends2 */
-  ierr = PetscMalloc1(nrqs+1,&s_status1);CHKERRQ(ierr);
-  ierr = PetscMalloc1(nrqr+1,&s_status2);CHKERRQ(ierr);
-
-  ierr = MPI_Waitall(nrqs,s_waits1,s_status1);CHKERRQ(ierr);
-
   if (scall == MAT_INITIAL_MATRIX) {
+    /* Wait on sends1 and sends2 */
+    ierr = PetscMalloc1(nrqs+1,&s_status1);CHKERRQ(ierr);
+    ierr = PetscMalloc1(nrqr+1,&s_status2);CHKERRQ(ierr);
+
+    ierr = MPI_Waitall(nrqs,s_waits1,s_status1);CHKERRQ(ierr);
+    ierr = PetscFree(s_waits1);CHKERRQ(ierr);
     ierr = PetscFree(r_waits2);CHKERRQ(ierr);
-    ierr = MPI_Waitall(nrqr,s_waits2,s_status2);CHKERRQ(ierr);
-  }
-  ierr = PetscFree(s_status1);CHKERRQ(ierr);
-  ierr = PetscFree(s_status2);CHKERRQ(ierr);
-  ierr = PetscFree(s_waits1);CHKERRQ(ierr);
-  ierr = PetscFree(s_waits2);CHKERRQ(ierr);
 
-  if (scall == MAT_INITIAL_MATRIX) {
+    ierr = MPI_Waitall(nrqr,s_waits2,s_status2);CHKERRQ(ierr);
+    ierr = PetscFree(s_status1);CHKERRQ(ierr);
+    ierr = PetscFree(s_status2);CHKERRQ(ierr);
+    ierr = PetscFree(s_waits2);CHKERRQ(ierr);
+
     /* Now allocate sending buffers for a->j, and send them off */
     PetscInt nzA,nzB,*a_i = a->i,*b_i = b->i,lwrite;
     PetscInt *cworkA,*cworkB,cstart = C->cmap->rstart,rstart = C->rmap->rstart,*bmap = c->garray;
@@ -1515,8 +1528,7 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
       ierr = MPI_Isend(sbuf_aa_i,req_size[i],MPIU_SCALAR,req_source[i],tag3,comm,s_waits4+i);CHKERRQ(ierr);
     }
   }
-  ierr = PetscFree(rbuf1[0]);CHKERRQ(ierr);
-  ierr = PetscFree(rbuf1);CHKERRQ(ierr);
+  
   ierr = PetscMalloc1(nrqs+1,&r_status4);CHKERRQ(ierr);
   ierr = PetscMalloc1(nrqr+1,&s_status4);CHKERRQ(ierr);
 
@@ -1655,8 +1667,11 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
     c->submatj = submatj;
 
     submatj->nrqs        = nrqs;
+    submatj->nrqr        = nrqr;
+    submatj->rbuf1       = rbuf1;
     submatj->rbuf2       = rbuf2;
     submatj->rbuf3       = rbuf3;
+    submatj->sbuf2       = sbuf2;
     submatj->r_status2   = r_status2;
 
     submatj->sbuf1       = sbuf1;
@@ -1665,6 +1680,8 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
     submatj->ctr         = ctr;
 
     submatj->pa          = pa;
+    submatj->req_size    = req_size;
+    submatj->req_source  = req_source;
 
     submatj->destroy     = submat->ops->destroy;
     submat->ops->destroy = MatDestroy_MPIAIJ_MatGetSubmatrices;
@@ -1777,16 +1794,12 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
 
   /* Destroy allocated memory */
   ierr = PetscFree4(w1,w2,w3,w4);CHKERRQ(ierr);
- 
-  for (i=0; i<nrqr; ++i) {
-    ierr = PetscFree(sbuf2[i]);CHKERRQ(ierr);
-  }
+
   for (i=0; i<nrqs; ++i) {
     ierr = PetscFree(rbuf4[i]);CHKERRQ(ierr);
   }
-
-  ierr = PetscFree3(sbuf2,req_size,req_source);CHKERRQ(ierr);
   ierr = PetscFree(rbuf4);CHKERRQ(ierr);
+
   if (scall == MAT_INITIAL_MATRIX) {
     ierr = PetscFree(sbuf_aj[0]);CHKERRQ(ierr);
     ierr = PetscFree(sbuf_aj);CHKERRQ(ierr);

@@ -104,6 +104,8 @@ typedef struct { /* used by MatGetSubMatrices_MPIAIJ_single_Local() */
   PetscInt   *tmp;
   PetscInt   *ctr;
 
+  PetscInt   *pa; /* proc array */
+
   PetscErrorCode (*destroy)(Mat);
 } Mat_SubMat;
 

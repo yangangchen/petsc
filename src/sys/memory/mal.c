@@ -164,7 +164,7 @@ PetscErrorCode  PetscMallocSet(PetscErrorCode (*imalloc)(size_t,int,const char[]
                                               PetscErrorCode (*ifree)(void*,int,const char[],const char[]))
 {
   PetscFunctionBegin;
-  if (petscsetmallocvisited && (imalloc != PetscTrMalloc || ifree != PetscTrFree)) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"cannot call multiple times");
+  if (petscsetmallocvisited && (imalloc != PetscTrMalloc || ifree != PetscTrFree) && (imalloc != PetscHBWMalloc || ifree != PetscHBWFree)) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"cannot call multiple times");
   PetscTrMalloc         = imalloc;
   PetscTrFree           = ifree;
   petscsetmallocvisited = PETSC_TRUE;

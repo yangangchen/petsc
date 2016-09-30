@@ -1165,7 +1165,7 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
   PetscInt       **sbuf1,**sbuf2,i,j,k,l,ct1,ct2,**rbuf1,row,proc;
   PetscInt       nrqs=0,msz,**ptr,*req_size,*ctr,*pa,*tmp,tcol,*iptr;
   PetscInt       **rbuf3,*req_source,**sbuf_aj,**rbuf2,max1,nnz;
-  PetscInt       *lens,is_no,ncols,*cols,tmp2,jmax,Crow;
+  PetscInt       *lens,ncols,*cols,jmax,Crow;
 #if defined(PETSC_USE_CTABLE)
   PetscTable     cmap,rmap;
 #else

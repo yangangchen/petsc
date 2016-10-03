@@ -105,7 +105,13 @@ typedef struct { /* used by MatGetSubMatrices_MPIAIJ_single_Local() */
 
   PetscInt   *pa; /* proc array */
   PetscInt   *req_size,*req_source;
-  
+  PetscBool  allcolumns;
+#if defined(PETSC_USE_CTABLE)
+  PetscTable     cmap,rmap;
+#else
+  PetscInt       *cmap,*rmap;
+#endif
+
   PetscErrorCode (*destroy)(Mat);
 } Mat_SubMat;
 

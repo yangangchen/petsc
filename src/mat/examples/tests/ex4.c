@@ -54,6 +54,7 @@ int main(int argc,char **argv)
   ierr   = MatDestroy(&submat);CHKERRQ(ierr);
   ierr   = ISCreateStride(PETSC_COMM_SELF,10,0,1,&icol);CHKERRQ(ierr);
   ierr   = MatGetSubMatrices(mat,1,&irow,&icol,MAT_INITIAL_MATRIX,&submatrices);CHKERRQ(ierr);
+  ierr   = MatGetSubMatrices(mat,1,&irow,&icol,MAT_REUSE_MATRIX,&submatrices);CHKERRQ(ierr);
   submat = *submatrices;
   ierr   = PetscFree(submatrices);CHKERRQ(ierr);
 

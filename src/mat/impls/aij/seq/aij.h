@@ -97,14 +97,11 @@ typedef struct {
 typedef struct { /* used by MatGetSubMatrices_MPIAIJ_single_Local() */
   PetscInt   nrqs,nrqr;
   PetscInt   **rbuf1,**rbuf2,**rbuf3,**sbuf1,**sbuf2;
-  MPI_Status *r_status2;
-
   PetscInt   **ptr;
   PetscInt   *tmp;
   PetscInt   *ctr;
-
   PetscInt   *pa; /* proc array */
-  PetscInt   *req_size,*req_source;
+  PetscInt   *req_size,*req_source1,*req_source2;
   PetscBool  allcolumns;
 #if defined(PETSC_USE_CTABLE)
   PetscTable     cmap,rmap;

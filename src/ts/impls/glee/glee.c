@@ -156,51 +156,53 @@ PetscErrorCode TSGLEERegisterAll(void)
   TSGLEERegisterAllCalled = PETSC_TRUE;
 
   {
+#define GAMMA 0.5
     /* y-eps form */
     const PetscInt
       p = 1,
       s = 3,
       r = 2;
     const PetscReal
-      gamma     = 0.5,
       A[3][3]   = {{1.0,0,0},{0,0.5,0},{0,0.5,0.5}},
       B[2][3]   = {{1.0,0,0},{-2.0,1.0,1.0}},
       U[3][2]   = {{1.0,0},{1.0,0.5},{1.0,0.5}},
       V[2][2]   = {{1,0},{0,1}},
       S[2]      = {1,0},
       F[2]      = {1,0},
-      Fembed[2] = {1,1-gamma},
+      Fembed[2] = {1,1-GAMMA},
       Ferror[2] = {0,1},
       Serror[2] = {1,0};
-    ierr = TSGLEERegister(TSGLEEi1,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+    ierr = TSGLEERegister(TSGLEEi1,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
   {
+#undef GAMMA
+#define GAMMA 0.0
     /* y-eps form */
     const PetscInt
       p = 2,
       s = 3,
       r = 2;
     const PetscReal
-      gamma     = 0,
       A[3][3]   = {{0,0,0},{1,0,0},{0.25,0.25,0}},
       B[2][3]   = {{1.0/12.0,1.0/12.0,5.0/6.0},{1.0/12.0,1.0/12.0,-1.0/6.0}},
       U[3][2]   = {{1,0},{1,10},{1,-1}},
       V[2][2]   = {{1,0},{0,1}},
       S[2]      = {1,0},
       F[2]      = {1,0},
-      Fembed[2] = {1,1-gamma},
+      Fembed[2] = {1,1-GAMMA},
       Ferror[2] = {0,1},
       Serror[2] = {1,0};
-    ierr = TSGLEERegister(TSGLEE23,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+    ierr = TSGLEERegister(TSGLEE23,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
   {
+#undef GAMMA
+#define GAMMA 0.0
     /* y-y~ form */
     const PetscInt
       p = 2,
       s = 4,
       r = 2;
     const PetscReal
-      gamma     = 0,
       A[4][4]   = {{0,0,0,0},{0.75,0,0,0},{0.25,29.0/60.0,0,0},{-21.0/44.0,145.0/44.0,-20.0/11.0,0}},
       B[2][4]   = {{109.0/275.0,58.0/75.0,-37.0/110.0,1.0/6.0},{3.0/11.0,0,75.0/88.0,-1.0/8.0}},
       U[4][2]   = {{0,1},{75.0/58.0,-17.0/58.0},{0,1},{0,1}},
@@ -208,18 +210,19 @@ PetscErrorCode TSGLEERegisterAll(void)
       S[2]      = {1,1},
       F[2]      = {1,0},
       Fembed[2] = {0,1},
-      Ferror[2] = {-1.0/(1.0-gamma),1.0/(1.0-gamma)},
-      Serror[2] = {1.0-gamma,1.0};
-      ierr = TSGLEERegister(TSGLEE24,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+      Ferror[2] = {-1.0/(1.0-GAMMA),1.0/(1.0-GAMMA)},
+      Serror[2] = {1.0-GAMMA,1.0};
+      ierr = TSGLEERegister(TSGLEE24,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
   {
+#undef GAMMA
+#define GAMMA 0.0
     /* y-y~ form */
     const PetscInt
       p = 2,
       s = 5,
       r = 2;
     const PetscReal
-      gamma     = 0,
       A[5][5]   = {{0,0,0,0,0},
                    {-0.94079244066783383269,0,0,0,0},
                    {0.64228187778301907108,0.10915356933958500042,0,0,0},
@@ -236,23 +239,24 @@ PetscErrorCode TSGLEERegisterAll(void)
       S[2]      = {1,1},
       F[2]      = {1,0},
       Fembed[2] = {0,1},
-      Ferror[2] = {-1.0/(1.0-gamma),1.0/(1.0-gamma)},
-      Serror[2] = {1.0-gamma,1.0};
-    ierr = TSGLEERegister(TSGLEE25I,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+      Ferror[2] = {-1.0/(1.0-GAMMA),1.0/(1.0-GAMMA)},
+      Serror[2] = {1.0-GAMMA,1.0};
+    ierr = TSGLEERegister(TSGLEE25I,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
   {
+#undef GAMMA
+#define GAMMA 0.0
     /* y-y~ form */
     const PetscInt
       p = 3,
       s = 5,
       r = 2;
     const PetscReal
-      gamma     = 0,
       A[5][5]   = {{0,0,0,0,0},
                    {- 2169604947363702313.0 /  24313474998937147335.0,0,0,0,0},
                    {46526746497697123895.0 /  94116917485856474137.0,-10297879244026594958.0 /  49199457603717988219.0,0,0,0},
                    {23364788935845982499.0 /  87425311444725389446.0,-79205144337496116638.0 / 148994349441340815519.0,40051189859317443782.0 /  36487615018004984309.0,0,0},
-                   {42089522664062539205.0 / 124911313006412840286.0,-15074384760342762939.0 / 137927286865289746282.0,-62274678522253371016.0 / 125918573676298591413.0,13755475729852471739.0 /  79257927066651693390.0}},
+                   {42089522664062539205.0 / 124911313006412840286.0,-15074384760342762939.0 / 137927286865289746282.0,-62274678522253371016.0 / 125918573676298591413.0,13755475729852471739.0 /  79257927066651693390.0,0}},
       B[2][5]   = {{61546696837458703723.0 /  56982519523786160813.0,-55810892792806293355.0 / 206957624151308356511.0,24061048952676379087.0 / 158739347956038723465.0,3577972206874351339.0 /   7599733370677197135.0,-59449832954780563947.0 / 137360038685338563670.0},
                    {- 9738262186984159168.0 /  99299082461487742983.0,-32797097931948613195.0 /  61521565616362163366.0,42895514606418420631.0 /  71714201188501437336.0,22608567633166065068.0 /  55371917805607957003.0,94655809487476459565.0 / 151517167160302729021.0}},
       U[5][2]   = {{70820309139834661559.0 /  80863923579509469826.0,10043614439674808267.0 /  80863923579509469826.0},
@@ -264,18 +268,19 @@ PetscErrorCode TSGLEERegisterAll(void)
       S[2]      = {1,1},
       F[2]      = {1,0},
       Fembed[2] = {0,1},
-      Ferror[2] = {-1.0/(1.0-gamma),1.0/(1.0-gamma)},
-      Serror[2] = {1.0-gamma,1.0};
-    ierr = TSGLEERegister(TSGLEE35,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+      Ferror[2] = {-1.0/(1.0-GAMMA),1.0/(1.0-GAMMA)},
+      Serror[2] = {1.0-GAMMA,1.0};
+    ierr = TSGLEERegister(TSGLEE35,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
   {
+#undef GAMMA
+#define GAMMA 0.25
     /* y-eps form */
     const PetscInt
       p = 2,
       s = 6,
       r = 2;
     const PetscReal
-      gamma     = 0.25,
       A[6][6]   = {{0,0,0,0,0,0},
                    {1,0,0,0,0,0},
                    {0,0,0,0,0,0},
@@ -288,19 +293,20 @@ PetscErrorCode TSGLEERegisterAll(void)
       V[2][2]   = {{1,0},{0,1}},
       S[2]      = {1,0},
       F[2]      = {1,0},
-      Fembed[2] = {1,1-gamma},
+      Fembed[2] = {1,1-GAMMA},
       Ferror[2] = {0,1},
       Serror[2] = {1,0};
-    ierr = TSGLEERegister(TSGLEEEXRK2A,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+    ierr = TSGLEERegister(TSGLEEEXRK2A,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
   {
+#undef GAMMA
+#define GAMMA 0.0
     /* y-eps form */
     const PetscInt
       p = 3,
       s = 8,
       r = 2;
     const PetscReal
-      gamma     = 0,
       A[8][8]   = {{0,0,0,0,0,0,0,0},
                    {0.5,0,0,0,0,0,0,0},
                    {-1,2,0,0,0,0,0,0},
@@ -315,19 +321,20 @@ PetscErrorCode TSGLEERegisterAll(void)
       V[2][2]   = {{1,0},{0,1}},
       S[2]      = {1,0},
       F[2]      = {1,0},
-      Fembed[2] = {1,1-gamma},
+      Fembed[2] = {1,1-GAMMA},
       Ferror[2] = {0,1},
       Serror[2] = {1,0};
-    ierr = TSGLEERegister(TSGLEERK32G1,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+    ierr = TSGLEERegister(TSGLEERK32G1,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
   {
+#undef GAMMA
+#define GAMMA 0.25
     /* y-eps form */
     const PetscInt
       p = 2,
       s = 9,
       r = 2;
     const PetscReal
-      gamma     = 0.25,
       A[9][9]   = {{0,0,0,0,0,0,0,0,0},
                    {0.585786437626904966,0,0,0,0,0,0,0,0},
                    {0.149999999999999994,0.849999999999999978,0,0,0,0,0,0,0},
@@ -343,10 +350,10 @@ PetscErrorCode TSGLEERegisterAll(void)
       V[2][2]   = {{1,0},{0,1}},
       S[2]      = {1,0},
       F[2]      = {1,0},
-      Fembed[2] = {1,1-gamma},
+      Fembed[2] = {1,1-GAMMA},
       Ferror[2] = {0,1},
       Serror[2] = {1,0};
-    ierr = TSGLEERegister(TSGLEERK285EX,p,s,r,gamma,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
+    ierr = TSGLEERegister(TSGLEERK285EX,p,s,r,GAMMA,&A[0][0],&B[0][0],&U[0][0],&V[0][0],S,F,NULL,Fembed,Ferror,Serror,0,NULL);CHKERRQ(ierr);
   }
 
   PetscFunctionReturn(0);

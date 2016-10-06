@@ -180,11 +180,10 @@ PETSC_STATIC_INLINE void CoordinatesRealToRef(PetscInt dimReal, PetscInt dimRef,
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "EvaluateFieldJets"
-PETSC_STATIC_INLINE PetscErrorCode EvaluateFieldJets(PetscDS prob, PetscBool bd, PetscInt q, const PetscReal invJ[], const PetscScalar coefficients[], const PetscScalar coefficients_t[], PetscScalar u[], PetscScalar u_x[], PetscScalar u_t[])
+#define __FUNCT__ "EvaluatePointFieldJets"
+PETSC_STATIC_INLINE PetscErrorCode EvaluatePointFieldJets(PetscDS prob, PetscBool bd, PetscInt q, PetscReal **basisField, PetscReal **basisFieldDer, const PetscReal invJ[], const PetscScalar coefficients[], const PetscScalar coefficients_t[], PetscScalar u[], PetscScalar u_x[], PetscScalar u_t[])
 {
   PetscScalar   *refSpaceDer;
-  PetscReal    **basisField, **basisFieldDer;
   PetscInt       dOffset = 0, fOffset = 0;
   PetscInt       Nf, Nc, dimRef, dimReal, d, f;
   PetscErrorCode ierr;
@@ -196,10 +195,8 @@ PETSC_STATIC_INLINE PetscErrorCode EvaluateFieldJets(PetscDS prob, PetscBool bd,
   ierr = PetscDSGetNumFields(prob, &Nf);CHKERRQ(ierr);
   ierr = PetscDSGetTotalComponents(prob, &Nc);CHKERRQ(ierr);
   ierr = PetscDSGetRefCoordArrays(prob, NULL, &refSpaceDer);CHKERRQ(ierr);
-  if (bd) {ierr = PetscDSGetBdTabulation(prob, &basisField, &basisFieldDer);CHKERRQ(ierr);}
-  else    {ierr = PetscDSGetTabulation(prob, &basisField, &basisFieldDer);CHKERRQ(ierr);}
   for (d = 0; d < Nc; ++d)          {u[d]   = 0.0;}
-  for (d = 0; d < dimReal*Nc; ++d)      {u_x[d] = 0.0;}
+  for (d = 0; d < dimReal*Nc; ++d)  {u_x[d] = 0.0;}
   if (u_t) for (d = 0; d < Nc; ++d) {u_t[d] = 0.0;}
   for (f = 0; f < Nf; ++f) {
     const PetscReal *basis    = basisField[f];
@@ -228,7 +225,7 @@ PETSC_STATIC_INLINE PetscErrorCode EvaluateFieldJets(PetscDS prob, PetscBool bd,
       for (c = 0; c < Ncf; ++c) {
         const PetscInt cidx = b*Ncf+c;
 
-        u[fOffset+c]   += coefficients[dOffset+cidx]*basis[q*Nb*Ncf+cidx];
+        u[fOffset+c] += coefficients[dOffset+cidx]*basis[q*Nb*Ncf+cidx];
         for (d = 0; d < dimRef; ++d) refSpaceDer[c*dimRef+d] += coefficients[dOffset+cidx]*basisDer[(q*Nb*Ncf+cidx)*dimRef+d];
       }
     }
@@ -257,6 +254,18 @@ PETSC_STATIC_INLINE PetscErrorCode EvaluateFieldJets(PetscDS prob, PetscBool bd,
   return 0;
 }
 
+#undef __FUNCT__
+#define __FUNCT__ "EvaluateFieldJets"
+PETSC_STATIC_INLINE PetscErrorCode EvaluateFieldJets(PetscDS prob, PetscBool bd, PetscInt q, const PetscReal invJ[], const PetscScalar coefficients[], const PetscScalar coefficients_t[], PetscScalar u[], PetscScalar u_x[], PetscScalar u_t[])
+{
+  PetscReal    **basisField, **basisFieldDer;
+  PetscErrorCode ierr;
+
+  if (!prob) return 0;
+  if (bd) {ierr = PetscDSGetBdTabulation(prob, &basisField, &basisFieldDer);CHKERRQ(ierr);}
+  else    {ierr = PetscDSGetTabulation(prob, &basisField, &basisFieldDer);CHKERRQ(ierr);}
+  return EvaluatePointFieldJets(prob, bd, q, basisField, basisFieldDer, invJ, coefficients, coefficients_t, u, u_x, u_t);
+}
 
 #undef __FUNCT__
 #define __FUNCT__ "EvaluateFaceFields"

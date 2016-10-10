@@ -1656,8 +1656,6 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
 
   /* Assemble submat */
   /* First assemble the local rows */
-  subc = (Mat_SeqAIJ*)submat->data;
-
   for (j=0; j<nrow; j++) {
     proc = 0;
     row  = irow[j];

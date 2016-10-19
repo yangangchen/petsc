@@ -7186,8 +7186,10 @@ PetscErrorCode MatGetBlockSizes(Mat mat,PetscInt *rbs, PetscInt *cbs)
 
    Notes:
     Block row formats are MATSEQBAIJ, MATMPIBAIJ, MATSEQSBAIJ, MATMPISBAIJ. These formats ALWAYS have square block storage in the matrix.
+    This must be called before MatSetUp() or MatXXXSetPreallocation() (or will default to 1) and the block size cannot be changed later.
 
-     This must be called before MatSetUp() or MatXXXSetPreallocation() (or will default to 1) and the block size cannot be changed later
+    For MATMPIAIJ and MATSEQAIJ matrix formats, this function can be called at a later stage, provided that the specified block size
+    is compatible with the matrix local sizes.
 
    Level: intermediate
 
@@ -7202,6 +7204,9 @@ PetscErrorCode MatSetBlockSize(Mat mat,PetscInt bs)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
   PetscValidLogicalCollectiveInt(mat,bs,2);
+  if (mat->ops->setblocksizes) {
+    ierr = (*mat->ops->setblocksizes)(mat,bs,bs);CHKERRQ(ierr);
+  }
   ierr = PetscLayoutSetBlockSize(mat->rmap,bs);CHKERRQ(ierr);
   ierr = PetscLayoutSetBlockSize(mat->cmap,bs);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -7222,8 +7227,10 @@ PetscErrorCode MatSetBlockSize(Mat mat,PetscInt bs)
    Notes:
     Block row formats are MATSEQBAIJ, MATMPIBAIJ, MATSEQSBAIJ, MATMPISBAIJ. These formats ALWAYS have square block storage in the matrix.
     If you pass a different block size for the columns than the rows, the row block size determines the square block storage.
-
     This must be called before MatSetUp() or MatXXXSetPreallocation() (or will default to 1) and the block size cannot be changed later
+
+    For MATMPIAIJ and MATSEQAIJ matrix formats, this function can be called at a later stage, provided that the specified block sizes
+    are compatible with the matrix local sizes.
 
     The row and column block size determine the blocksize of the "row" and "column" vectors returned by MatCreateVecs().
 
@@ -7241,6 +7248,9 @@ PetscErrorCode MatSetBlockSizes(Mat mat,PetscInt rbs,PetscInt cbs)
   PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
   PetscValidLogicalCollectiveInt(mat,rbs,2);
   PetscValidLogicalCollectiveInt(mat,cbs,3);
+  if (mat->ops->setblocksizes) {
+    ierr = (*mat->ops->setblocksizes)(mat,rbs,cbs);CHKERRQ(ierr);
+  }
   ierr = PetscLayoutSetBlockSize(mat->rmap,rbs);CHKERRQ(ierr);
   ierr = PetscLayoutSetBlockSize(mat->cmap,cbs);CHKERRQ(ierr);
   PetscFunctionReturn(0);

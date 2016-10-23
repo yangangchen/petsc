@@ -7204,11 +7204,7 @@ PetscErrorCode MatSetBlockSize(Mat mat,PetscInt bs)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
   PetscValidLogicalCollectiveInt(mat,bs,2);
-  if (mat->ops->setblocksizes) {
-    ierr = (*mat->ops->setblocksizes)(mat,bs,bs);CHKERRQ(ierr);
-  }
-  ierr = PetscLayoutSetBlockSize(mat->rmap,bs);CHKERRQ(ierr);
-  ierr = PetscLayoutSetBlockSize(mat->cmap,bs);CHKERRQ(ierr);
+  ierr = MatSetBlockSizes(mat,bs,bs);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -7250,6 +7246,30 @@ PetscErrorCode MatSetBlockSizes(Mat mat,PetscInt rbs,PetscInt cbs)
   PetscValidLogicalCollectiveInt(mat,cbs,3);
   if (mat->ops->setblocksizes) {
     ierr = (*mat->ops->setblocksizes)(mat,rbs,cbs);CHKERRQ(ierr);
+  }
+  if (mat->rmap->refcnt) {
+    ISLocalToGlobalMapping l2g = NULL;
+    PetscLayout            nmap = NULL;
+
+    ierr = PetscLayoutDuplicate(mat->rmap,&nmap);CHKERRQ(ierr);
+    if (mat->rmap->mapping) {
+      ierr = ISLocalToGlobalMappingDuplicate(mat->rmap->mapping,&l2g);CHKERRQ(ierr);
+    }
+    ierr = PetscLayoutDestroy(&mat->rmap);CHKERRQ(ierr);
+    mat->rmap = nmap;
+    mat->rmap->mapping = l2g;
+  }
+  if (mat->cmap->refcnt) {
+    ISLocalToGlobalMapping l2g = NULL;
+    PetscLayout            nmap = NULL;
+
+    ierr = PetscLayoutDuplicate(mat->cmap,&nmap);CHKERRQ(ierr);
+    if (mat->cmap->mapping) {
+      ierr = ISLocalToGlobalMappingDuplicate(mat->cmap->mapping,&l2g);CHKERRQ(ierr);
+    }
+    ierr = PetscLayoutDestroy(&mat->cmap);CHKERRQ(ierr);
+    mat->cmap = nmap;
+    mat->cmap->mapping = l2g;
   }
   ierr = PetscLayoutSetBlockSize(mat->rmap,rbs);CHKERRQ(ierr);
   ierr = PetscLayoutSetBlockSize(mat->cmap,cbs);CHKERRQ(ierr);

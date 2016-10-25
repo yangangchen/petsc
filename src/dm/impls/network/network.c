@@ -1247,7 +1247,7 @@ PetscErrorCode DMCreateMatrix_Network(DM dm,Mat *J)
   PetscBool      ghost,ghost_vc,ghost2,isNest;
   Mat            Juser;
   PetscSection   sectionGlobal;
-  PetscInt       nedges,*vptr=NULL,vc,*rows_v;
+  PetscInt       nedges,*vptr=NULL,vc,*rows_v; /* suppress maybe-uninitialized warning */
   const PetscInt *edges,*cone;
   MPI_Comm       comm;
   MatType        mtype;

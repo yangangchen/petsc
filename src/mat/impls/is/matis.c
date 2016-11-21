@@ -244,7 +244,7 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
   MPI_Comm               comm;
   PetscInt               *lr,*lc,*l2gidxs;
   PetscInt               i,j,nr,nc,rbs,cbs;
-  PetscBool              convert,lreuse;
+  PetscBool              convert,lreuse,*istrans;
   PetscErrorCode         ierr;
 
   PetscFunctionBeginUser;
@@ -266,9 +266,9 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
   }
   ierr = PetscObjectGetComm((PetscObject)A,&comm);CHKERRQ(ierr);
   ierr = PetscCalloc2(nr,&lr,nc,&lc);CHKERRQ(ierr);
-  ierr = PetscCalloc5(nr,&isrow,nc,&iscol,
+  ierr = PetscCalloc6(nr,&isrow,nc,&iscol,
                       nr,&islrow,nc,&islcol,
-                      nr*nc,&snest);CHKERRQ(ierr);
+                      nr*nc,&snest,nr*nc,&istrans);CHKERRQ(ierr);
   ierr = MatNestGetISs(A,isrow,iscol);CHKERRQ(ierr);
   for (i=0;i<nr;i++) {
     for (j=0;j<nc;j++) {
@@ -279,11 +279,21 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
       if (!nest[i][j]) continue;
 
       /* Nested matrices should be of type MATIS */
-      ierr = PetscObjectTypeCompare((PetscObject)nest[i][j],MATIS,&ismatis);CHKERRQ(ierr);
-      if (!ismatis) SETERRQ2(comm,PETSC_ERR_SUP,"Cannot convert from MATNEST to MATIS! Matrix block (%D,%D) is not of type MATIS",i,j);
+      ierr = PetscObjectTypeCompare((PetscObject)nest[i][j],MATTRANSPOSEMAT,&istrans[ij]);CHKERRQ(ierr);
+      if (istrans[ij]) {
+        Mat T,lT;
+        ierr = MatTransposeGetMat(nest[i][j],&T);CHKERRQ(ierr);
+        ierr = PetscObjectTypeCompare((PetscObject)T,MATIS,&ismatis);CHKERRQ(ierr);
+        if (!ismatis) SETERRQ2(comm,PETSC_ERR_SUP,"Cannot convert from MATNEST to MATIS! Matrix block (%D,%D) (transposed) is not of type MATIS",i,j);
+        ierr = MatISGetLocalMat(T,&lT);CHKERRQ(ierr);
+        ierr = MatCreateTranspose(lT,&snest[ij]);CHKERRQ(ierr);
+      } else {
+        ierr = PetscObjectTypeCompare((PetscObject)nest[i][j],MATIS,&ismatis);CHKERRQ(ierr);
+        if (!ismatis) SETERRQ2(comm,PETSC_ERR_SUP,"Cannot convert from MATNEST to MATIS! Matrix block (%D,%D) is not of type MATIS",i,j);
+        ierr = MatISGetLocalMat(nest[i][j],&snest[ij]);CHKERRQ(ierr);
+      }
 
       /* Check compatibility of local sizes */
-      ierr = MatISGetLocalMat(nest[i][j],&snest[ij]);CHKERRQ(ierr);
       ierr = MatGetSize(snest[ij],&l1,&l2);CHKERRQ(ierr);
       if (!l1 || !l2) continue;
       if (lr[i] && l1 != lr[i]) SETERRQ4(PETSC_COMM_SELF,PETSC_ERR_SUP,"Cannot convert from MATNEST to MATIS! Matrix block (%D,%D) has invalid local size %D != %D",i,j,lr[i],l1);
@@ -304,7 +314,14 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
       PetscInt n1,n2;
 
       if (!nest[i][j]) continue;
-      ierr = MatGetLocalToGlobalMapping(nest[i][j],&cl2g,NULL);CHKERRQ(ierr);
+      if (istrans[i*nc+j]) {
+        Mat T;
+
+        ierr = MatTransposeGetMat(nest[i][j],&T);CHKERRQ(ierr);
+        ierr = MatGetLocalToGlobalMapping(T,NULL,&cl2g);CHKERRQ(ierr);
+      } else {
+        ierr = MatGetLocalToGlobalMapping(nest[i][j],&cl2g,NULL);CHKERRQ(ierr);
+      }
       ierr = ISLocalToGlobalMappingGetSize(cl2g,&n1);CHKERRQ(ierr);
       if (!n1) continue;
       if (!rl2g) {
@@ -331,7 +348,14 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
       PetscInt n1,n2;
 
       if (!nest[j][i]) continue;
-      ierr = MatGetLocalToGlobalMapping(nest[j][i],NULL,&cl2g);CHKERRQ(ierr);
+      if (istrans[j*nc+i]) {
+        Mat T;
+
+        ierr = MatTransposeGetMat(nest[j][i],&T);CHKERRQ(ierr);
+        ierr = MatGetLocalToGlobalMapping(T,&cl2g,NULL);CHKERRQ(ierr);
+      } else {
+        ierr = MatGetLocalToGlobalMapping(nest[j][i],NULL,&cl2g);CHKERRQ(ierr);
+      }
       ierr = ISLocalToGlobalMappingGetSize(cl2g,&n1);CHKERRQ(ierr);
       if (!n1) continue;
       if (!rl2g) {
@@ -371,14 +395,25 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
       /* l2gmap */
       j = 0;
       usedmat = nest[i][j];
-      while (!usedmat && j < nc) usedmat = nest[i][j++];
+      while (!usedmat && j < nc-1) usedmat = nest[i][++j];
+      if (!usedmat) SETERRQ(comm,PETSC_ERR_SUP,"Cannot find valid row mat");
+      if (istrans[i*nc+j]) {
+        Mat T;
+        ierr    = MatTransposeGetMat(usedmat,&T);CHKERRQ(ierr);
+        usedmat = T;
+      }
       ierr  = MatISSetUpSF(usedmat);CHKERRQ(ierr);
       matis = (Mat_IS*)(usedmat->data);
       ierr  = ISGetIndices(isrow[i],&idxs);CHKERRQ(ierr);
-      ierr  = PetscSFBcastBegin(matis->sf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
-      ierr  = PetscSFBcastEnd(matis->sf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
-      ierr  = ISRestoreIndices(isrow[i],&idxs);CHKERRQ(ierr);
-      stl  += lr[i];
+      if (istrans[i*nc+j]) {
+        ierr = PetscSFBcastBegin(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+        ierr = PetscSFBcastEnd(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+      } else {
+        ierr = PetscSFBcastBegin(matis->sf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+        ierr = PetscSFBcastEnd(matis->sf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+      }
+      ierr = ISRestoreIndices(isrow[i],&idxs);CHKERRQ(ierr);
+      stl += lr[i];
     }
     ierr = ISLocalToGlobalMappingCreate(comm,1,stl,l2gidxs,PETSC_OWN_POINTER,&rl2g);CHKERRQ(ierr);
 
@@ -396,12 +431,23 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
       /* l2gmap */
       j = 0;
       usedmat = nest[j][i];
-      while (!usedmat && j < nr) usedmat = nest[j++][i];
+      while (!usedmat && j < nr-1) usedmat = nest[++j][i];
+      if (!usedmat) SETERRQ(comm,PETSC_ERR_SUP,"Cannot find valid column mat");
+      if (istrans[j*nc+i]) {
+        Mat T;
+        ierr    = MatTransposeGetMat(usedmat,&T);CHKERRQ(ierr);
+        usedmat = T;
+      }
       ierr  = MatISSetUpSF(usedmat);CHKERRQ(ierr);
       matis = (Mat_IS*)(usedmat->data);
       ierr  = ISGetIndices(iscol[i],&idxs);CHKERRQ(ierr);
-      ierr  = PetscSFBcastBegin(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
-      ierr  = PetscSFBcastEnd(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+      if (istrans[j*nc+i]) {
+        ierr = PetscSFBcastBegin(matis->sf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+        ierr = PetscSFBcastEnd(matis->sf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+      } else {
+        ierr = PetscSFBcastBegin(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+        ierr = PetscSFBcastEnd(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
+      }
       ierr  = ISRestoreIndices(iscol[i],&idxs);CHKERRQ(ierr);
       stl  += lc[i];
     }
@@ -417,6 +463,11 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
     ierr = ISLocalToGlobalMappingDestroy(&rl2g);CHKERRQ(ierr);
     ierr = ISLocalToGlobalMappingDestroy(&cl2g);CHKERRQ(ierr);
     ierr = MatCreateNest(PETSC_COMM_SELF,nr,islrow,nc,islcol,snest,&lA);CHKERRQ(ierr);
+    for (i=0;i<nr*nc;i++) {
+      if (istrans[i]) {
+        ierr = MatDestroy(&snest[i]);CHKERRQ(ierr);
+      }
+    }
     ierr = MatISSetLocalMat(B,lA);CHKERRQ(ierr);
     ierr = MatDestroy(&lA);CHKERRQ(ierr);
     ierr = MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
@@ -433,6 +484,9 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
         for (j=0;j<nc;j++) {
           if (snest[i*nc+j]) {
             ierr = MatNestSetSubMat(lA,i,j,snest[i*nc+j]);CHKERRQ(ierr);
+            if (istrans[i*nc+j]) {
+              ierr = MatDestroy(&snest[i*nc+j]);CHKERRQ(ierr);
+            }
           }
         }
       }
@@ -447,6 +501,9 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
         stl  += lc[i];
       }
       ierr = MatCreateNest(PETSC_COMM_SELF,nr,islrow,nc,islcol,snest,&lA);CHKERRQ(ierr);
+      if (istrans[i]) {
+        ierr = MatDestroy(&snest[i]);CHKERRQ(ierr);
+      }
       ierr = MatISSetLocalMat(*newmat,lA);CHKERRQ(ierr);
       ierr = MatDestroy(&lA);CHKERRQ(ierr);
     }
@@ -500,7 +557,7 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
   for (i=0;i<nc;i++) {
     ierr = ISDestroy(&islcol[i]);CHKERRQ(ierr);
   }
-  ierr = PetscFree5(isrow,iscol,islrow,islcol,snest);CHKERRQ(ierr);
+  ierr = PetscFree6(isrow,iscol,islrow,islcol,snest,istrans);CHKERRQ(ierr);
   ierr = PetscFree2(lr,lc);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

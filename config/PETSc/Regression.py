@@ -81,7 +81,7 @@ class Configure(config.base.Configure):
         rjobs.append('C_Complex')
         if self.datafilespath.datafilespath and self.scalartypes.precision == 'double' and self.indextypes.integerSize == 32:
           for j in self.framework.packages:
-            if j.PACKAGE in ['SUPERLU_DIST']:
+            if j.PACKAGE in ['SUPERLU_DIST','ELEMENTAL']:
                 ejobs.append(j.PACKAGE+'_COMPLEX_DATAFILESPATH')
       else:
         rjobs.append('C_NoComplex')

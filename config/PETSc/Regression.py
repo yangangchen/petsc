@@ -119,7 +119,7 @@ class Configure(config.base.Configure):
         for i in self.framework.packages:
           if i.PACKAGE in ['FFTW','SUPERLU_DIST']:
             jobs.append(i.PACKAGE+ '_COMPLEX')
-          elif i.PACKAGE in ['STRUMPACK']:
+          elif i.PACKAGE in ['STRUMPACK','ELEMENTAL']:
             jobs.append(i.PACKAGE)
       if hasattr(self.compilers, 'CUDAC'):
         if self.veccuda.defines.has_key('HAVE_VECCUDA'):

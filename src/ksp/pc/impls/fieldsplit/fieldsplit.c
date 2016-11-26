@@ -442,7 +442,6 @@ static PetscErrorCode PCFieldSplitSetDefaults(PC pc)
         }
       }
     }
-    jac->reset = PETSC_FALSE;
   } else if (jac->nsplits == 1) {
     if (ilink->is) {
       IS       is2;

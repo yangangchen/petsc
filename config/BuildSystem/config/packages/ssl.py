@@ -4,7 +4,7 @@ import os
 class Configure(config.package.Package):
   def __init__(self, framework):
     config.package.Package.__init__(self, framework)
-    self.functions         = ['SSLv23_method']
+    self.functions         = ['SSL_library_init']
     self.includes          = ['openssl/ssl.h']
     self.liblist           = [['libssl.a','libcrypto.a']]
     self.lookforbydefault  = 1

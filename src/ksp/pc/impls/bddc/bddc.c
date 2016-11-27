@@ -1485,25 +1485,27 @@ static PetscErrorCode PCPostSolve_BDDC(PC pc, KSP ksp, Vec rhs, Vec x)
   if (x && pcbddc->rhs_change) {
     if (pcbddc->temp_solution_used) {
       ierr = VecAXPY(x,1.0,pcbddc->temp_solution);CHKERRQ(ierr);
-    } else if (pcbddc->benign_compute_correction) {
+    } else if (pcbddc->benign_compute_correction && pcbddc->benign_vec) {
       ierr = VecAXPY(x,-1.0,pcbddc->benign_vec);CHKERRQ(ierr);
     }
+    /* restore to original state (not for FETI-DP) */
+    if (ksp) pcbddc->temp_solution_used = PETSC_FALSE;
   }
-  pcbddc->temp_solution_used = PETSC_FALSE;
 
   /* restore rhs to its original state (not needed for FETI-DP) */
   if (rhs && pcbddc->rhs_change) {
     ierr = VecSwap(rhs,pcbddc->original_rhs);CHKERRQ(ierr);
+    pcbddc->rhs_change = PETSC_FALSE;
   }
-  pcbddc->rhs_change = PETSC_FALSE;
   /* restore ksp guess state */
   if (ksp) {
     ierr = KSPSetInitialGuessNonzero(ksp,pcbddc->ksp_guess_nonzero);CHKERRQ(ierr);
+    /* reset flag for exact dirichlet trick */
+    pcbddc->exact_dirichlet_trick_app = PETSC_FALSE;
   }
-  /* reset flag for exact dirichlet trick */
-  pcbddc->exact_dirichlet_trick_app = PETSC_FALSE;
   PetscFunctionReturn(0);
 }
+
 #undef __FUNCT__
 #define __FUNCT__ "PCSetUp_BDDC"
 /*
@@ -1525,7 +1527,8 @@ PetscErrorCode PCSetUp_BDDC(PC pc)
   PCBDDCSubSchurs sub_schurs;
   Mat_IS*         matis;
   MatNullSpace    nearnullspace;
-  IS              zerodiag = NULL;
+  Mat             lA;
+  IS              lP,zerodiag = NULL;
   PetscInt        nrows,ncols;
   PetscBool       computesubschurs;
   PetscBool       computeconstraintsmatrix;
@@ -1782,6 +1785,36 @@ PetscErrorCode PCSetUp_BDDC(PC pc)
     ierr = PetscObjectReference((PetscObject)matis->A);CHKERRQ(ierr);
     pcbddc->local_mat = matis->A;
   }
+
+  /* interface pressure block row for B_C */
+  ierr = PetscObjectQuery((PetscObject)pc,"__KSPFETIDP_lP" ,(PetscObject*)&lP);CHKERRQ(ierr);
+  ierr = PetscObjectQuery((PetscObject)pc,"__KSPFETIDP_lA" ,(PetscObject*)&lA);CHKERRQ(ierr);
+  if (lA && lP) {
+    PC_IS*    pcis = (PC_IS*)pc->data;
+    Mat       B_BI,B_BB,Bt_BI,Bt_BB;
+    PetscBool issym;
+    ierr = MatIsSymmetric(lA,PETSC_SMALL,&issym);CHKERRQ(ierr);
+    if (issym) { /* symmetric elimination of essential dofs */
+      ierr = MatGetSubMatrix(lA,lP,pcis->is_I_local,MAT_INITIAL_MATRIX,&B_BI);CHKERRQ(ierr);
+      ierr = MatGetSubMatrix(lA,lP,pcis->is_B_local,MAT_INITIAL_MATRIX,&B_BB);CHKERRQ(ierr);
+      ierr = MatCreateTranspose(B_BI,&Bt_BI);CHKERRQ(ierr);
+      ierr = MatCreateTranspose(B_BB,&Bt_BB);CHKERRQ(ierr);
+    } else {
+      ierr = MatGetSubMatrix(lA,pcis->is_I_local,lP,MAT_INITIAL_MATRIX,&Bt_BI);CHKERRQ(ierr);
+      ierr = MatGetSubMatrix(lA,pcis->is_B_local,lP,MAT_INITIAL_MATRIX,&Bt_BB);CHKERRQ(ierr);
+      ierr = MatCreateTranspose(Bt_BI,&B_BI);CHKERRQ(ierr);
+      ierr = MatCreateTranspose(Bt_BB,&B_BB);CHKERRQ(ierr);
+    }
+    ierr = PetscObjectCompose((PetscObject)pc,"__KSPFETIDP_B_BI",(PetscObject)B_BI);CHKERRQ(ierr);
+    ierr = PetscObjectCompose((PetscObject)pc,"__KSPFETIDP_B_BB",(PetscObject)B_BB);CHKERRQ(ierr);
+    ierr = PetscObjectCompose((PetscObject)pc,"__KSPFETIDP_Bt_BI",(PetscObject)Bt_BI);CHKERRQ(ierr);
+    ierr = PetscObjectCompose((PetscObject)pc,"__KSPFETIDP_Bt_BB",(PetscObject)Bt_BB);CHKERRQ(ierr);
+    ierr = MatDestroy(&B_BI);CHKERRQ(ierr);
+    ierr = MatDestroy(&B_BB);CHKERRQ(ierr);
+    ierr = MatDestroy(&Bt_BI);CHKERRQ(ierr);
+    ierr = MatDestroy(&Bt_BB);CHKERRQ(ierr);
+  }
+
   /* SetUp coarse and local Neumann solvers */
   ierr = PCBDDCSetUpSolvers(pc);CHKERRQ(ierr);
   /* SetUp Scaling operator */
@@ -2202,14 +2235,24 @@ static PetscErrorCode PCBDDCMatFETIDPGetRHS_BDDC(Mat fetidp_mat, Vec standard_rh
   pcis = (PC_IS*)mat_ctx->pc->data;
   pcbddc = (PC_BDDC*)mat_ctx->pc->data;
 
-  /*
-     change of basis for physical rhs if needed
-     It also changes the rhs in case of dirichlet boundaries
-  */
+  ierr = VecSet(fetidp_flux_rhs,0.0);CHKERRQ(ierr);
+  /* copy rhs since we may change it during PCPreSolve_BDDC */
   if (!pcbddc->original_rhs) {
     ierr = VecDuplicate(pcis->vec1_global,&pcbddc->original_rhs);CHKERRQ(ierr);
   }
   ierr = VecCopy(standard_rhs,pcbddc->original_rhs);CHKERRQ(ierr);
+  if (mat_ctx->g2g_p) {
+    /* interface pressure rhs */
+    ierr = VecScatterBegin(mat_ctx->g2g_p,fetidp_flux_rhs,pcbddc->original_rhs,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterEnd(mat_ctx->g2g_p,fetidp_flux_rhs,pcbddc->original_rhs,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterBegin(mat_ctx->g2g_p,standard_rhs,fetidp_flux_rhs,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+    ierr = VecScatterEnd(mat_ctx->g2g_p,standard_rhs,fetidp_flux_rhs,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+    ierr = VecScale(fetidp_flux_rhs,-1.);CHKERRQ(ierr);
+  }
+  /*
+     change of basis for physical rhs if needed
+     It also changes the rhs in case of dirichlet boundaries
+  */
   ierr = PCPreSolve_BDDC(mat_ctx->pc,NULL,pcbddc->original_rhs,NULL);CHKERRQ(ierr);
   if (pcbddc->ChangeOfBasisMatrix) {
     ierr = MatMultTranspose(pcbddc->ChangeOfBasisMatrix,pcbddc->original_rhs,pcbddc->work_change);CHKERRQ(ierr);
@@ -2245,15 +2288,24 @@ static PetscErrorCode PCBDDCMatFETIDPGetRHS_BDDC(Mat fetidp_mat, Vec standard_rh
   if (pcbddc->switch_static) {
     ierr = VecCopy(mat_ctx->temp_solution_D,pcis->vec1_D);CHKERRQ(ierr);
   }
-  ierr = PetscMemzero(pcbddc->benign_p0,pcbddc->benign_n*sizeof(PetscScalar));CHKERRQ(ierr);
   /* apply BDDC */
+  ierr = PetscMemzero(pcbddc->benign_p0,pcbddc->benign_n*sizeof(PetscScalar));CHKERRQ(ierr);
   ierr = PCBDDCApplyInterfacePreconditioner(mat_ctx->pc,PETSC_FALSE);CHKERRQ(ierr);
   ierr = PetscMemzero(pcbddc->benign_p0,pcbddc->benign_n*sizeof(PetscScalar));CHKERRQ(ierr);
+
   /* Application of B_delta and assembling of rhs for fetidp fluxes */
-  ierr = VecSet(fetidp_flux_rhs,0.0);CHKERRQ(ierr);
   ierr = MatMult(mat_ctx->B_delta,pcis->vec1_B,mat_ctx->lambda_local);CHKERRQ(ierr);
   ierr = VecScatterBegin(mat_ctx->l2g_lambda,mat_ctx->lambda_local,fetidp_flux_rhs,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(mat_ctx->l2g_lambda,mat_ctx->lambda_local,fetidp_flux_rhs,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  /* Add contribution to interface pressures */
+  if (mat_ctx->l2g_p) {
+    ierr = MatMult(mat_ctx->B_BB,pcis->vec1_B,mat_ctx->vP);CHKERRQ(ierr);
+    if (pcbddc->switch_static) {
+      ierr = MatMultAdd(mat_ctx->B_BI,pcis->vec1_D,mat_ctx->vP,mat_ctx->vP);CHKERRQ(ierr);
+    }
+    ierr = VecScatterBegin(mat_ctx->l2g_p,mat_ctx->vP,fetidp_flux_rhs,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+    ierr = VecScatterEnd(mat_ctx->l2g_p,mat_ctx->vP,fetidp_flux_rhs,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 
@@ -2299,6 +2351,7 @@ static PetscErrorCode PCBDDCMatFETIDPGetSolution_BDDC(Mat fetidp_mat, Vec fetidp
   PC_IS*         pcis;
   PC_BDDC*       pcbddc;
   PetscErrorCode ierr;
+  Vec            work;
 
   PetscFunctionBegin;
   ierr = MatShellGetContext(fetidp_mat,&mat_ctx);CHKERRQ(ierr);
@@ -2306,38 +2359,54 @@ static PetscErrorCode PCBDDCMatFETIDPGetSolution_BDDC(Mat fetidp_mat, Vec fetidp
   pcbddc = (PC_BDDC*)mat_ctx->pc->data;
 
   /* apply B_delta^T */
+  ierr = VecSet(pcis->vec1_B,0.);CHKERRQ(ierr);
   ierr = VecScatterBegin(mat_ctx->l2g_lambda,fetidp_flux_sol,mat_ctx->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterEnd(mat_ctx->l2g_lambda,fetidp_flux_sol,mat_ctx->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = MatMultTranspose(mat_ctx->B_delta,mat_ctx->lambda_local,pcis->vec1_B);CHKERRQ(ierr);
+  if (mat_ctx->l2g_p) {
+    ierr = VecScatterBegin(mat_ctx->l2g_p,fetidp_flux_sol,mat_ctx->vP,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterEnd(mat_ctx->l2g_p,fetidp_flux_sol,mat_ctx->vP,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = MatMultAdd(mat_ctx->Bt_BB,mat_ctx->vP,pcis->vec1_B,pcis->vec1_B);CHKERRQ(ierr);
+  }
+
   /* compute rhs for BDDC application */
   ierr = VecAYPX(pcis->vec1_B,-1.0,mat_ctx->temp_solution_B);CHKERRQ(ierr);
   if (pcbddc->switch_static) {
     ierr = VecCopy(mat_ctx->temp_solution_D,pcis->vec1_D);CHKERRQ(ierr);
+    if (mat_ctx->l2g_p) {
+      ierr = VecScale(mat_ctx->vP,-1.);CHKERRQ(ierr);
+      ierr = MatMultAdd(mat_ctx->Bt_BI,mat_ctx->vP,pcis->vec1_D,pcis->vec1_D);CHKERRQ(ierr);
+    }
   }
-  ierr = PetscMemzero(pcbddc->benign_p0,pcbddc->benign_n*sizeof(PetscScalar));CHKERRQ(ierr);
+
   /* apply BDDC */
+  ierr = PetscMemzero(pcbddc->benign_p0,pcbddc->benign_n*sizeof(PetscScalar));CHKERRQ(ierr);
   ierr = PCBDDCApplyInterfacePreconditioner(mat_ctx->pc,PETSC_FALSE);CHKERRQ(ierr);
-  /* put values into standard global vector */
-  ierr = VecScatterBegin(pcis->global_to_B,pcis->vec1_B,standard_sol,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(pcis->global_to_B,pcis->vec1_B,standard_sol,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+
+  /* put values into global vector */
+  if (pcbddc->ChangeOfBasisMatrix) work = pcbddc->work_change;
+  else work = standard_sol;
+  ierr = VecScatterBegin(pcis->global_to_B,pcis->vec1_B,work,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterEnd(pcis->global_to_B,pcis->vec1_B,work,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   if (!pcbddc->switch_static) {
     /* compute values into the interior if solved for the partially subassembled Schur complement */
     ierr = MatMult(pcis->A_IB,pcis->vec1_B,pcis->vec1_D);CHKERRQ(ierr);
     ierr = VecAYPX(pcis->vec1_D,-1.0,mat_ctx->temp_solution_D);CHKERRQ(ierr);
     ierr = KSPSolve(pcbddc->ksp_D,pcis->vec1_D,pcis->vec1_D);CHKERRQ(ierr);
   }
-  ierr = VecScatterBegin(pcis->global_to_D,pcis->vec1_D,standard_sol,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(pcis->global_to_D,pcis->vec1_D,standard_sol,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+
+  ierr = VecScatterBegin(pcis->global_to_D,pcis->vec1_D,work,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterEnd(pcis->global_to_D,pcis->vec1_D,work,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   /* add p0 solution to final solution */
-  ierr = PCBDDCBenignGetOrSetP0(mat_ctx->pc,standard_sol,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = PCBDDCBenignGetOrSetP0(mat_ctx->pc,work,PETSC_FALSE);CHKERRQ(ierr);
   if (pcbddc->ChangeOfBasisMatrix) {
-    Vec v2;
-    ierr = VecDuplicate(standard_sol,&v2);CHKERRQ(ierr);
-    ierr = MatMult(pcbddc->ChangeOfBasisMatrix,standard_sol,v2);CHKERRQ(ierr);
-    ierr = VecCopy(v2,standard_sol);CHKERRQ(ierr);
-    ierr = VecDestroy(&v2);CHKERRQ(ierr);
+    ierr = MatMult(pcbddc->ChangeOfBasisMatrix,work,standard_sol);CHKERRQ(ierr);
   }
   ierr = PCPostSolve_BDDC(mat_ctx->pc,NULL,NULL,standard_sol);CHKERRQ(ierr);
+  if (mat_ctx->g2g_p) {
+    ierr = VecScatterBegin(mat_ctx->g2g_p,fetidp_flux_sol,standard_sol,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterEnd(mat_ctx->g2g_p,fetidp_flux_sol,standard_sol,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 
@@ -2375,12 +2444,12 @@ PetscErrorCode PCBDDCMatFETIDPGetSolution(Mat fetidp_mat, Vec fetidp_flux_sol, V
   PetscFunctionReturn(0);
 }
 
-extern PetscErrorCode FETIDPMatMult(Mat,Vec,Vec);
-extern PetscErrorCode FETIDPMatMultTranspose(Mat,Vec,Vec);
-extern PetscErrorCode PCBDDCDestroyFETIDPMat(Mat);
-extern PetscErrorCode FETIDPPCApply(PC,Vec,Vec);
-extern PetscErrorCode FETIDPPCApplyTranspose(PC,Vec,Vec);
-extern PetscErrorCode PCBDDCDestroyFETIDPPC(PC);
+PETSC_EXTERN PetscErrorCode FETIDPMatMult(Mat,Vec,Vec);
+PETSC_EXTERN PetscErrorCode FETIDPMatMultTranspose(Mat,Vec,Vec);
+PETSC_EXTERN PetscErrorCode PCBDDCDestroyFETIDPMat(Mat);
+PETSC_EXTERN PetscErrorCode FETIDPPCApply(PC,Vec,Vec);
+PETSC_EXTERN PetscErrorCode FETIDPPCApplyTranspose(PC,Vec,Vec);
+PETSC_EXTERN PetscErrorCode PCBDDCDestroyFETIDPPC(PC);
 
 #undef __FUNCT__
 #define __FUNCT__ "PCBDDCCreateFETIDPOperators_BDDC"
@@ -2400,7 +2469,7 @@ static PetscErrorCode PCBDDCCreateFETIDPOperators_BDDC(PC pc, PetscBool fully_re
   ierr = PCBDDCCreateFETIDPMatContext(pc,&fetidpmat_ctx);CHKERRQ(ierr);
   fetidpmat_ctx->fully_redundant = fully_redundant;
   ierr = PCBDDCSetupFETIDPMatContext(fetidpmat_ctx);CHKERRQ(ierr);
-  ierr = MatCreateShell(comm,PETSC_DECIDE,PETSC_DECIDE,fetidpmat_ctx->n_lambda,fetidpmat_ctx->n_lambda,fetidpmat_ctx,&newmat);CHKERRQ(ierr);
+  ierr = MatCreateShell(comm,fetidpmat_ctx->n,fetidpmat_ctx->n,fetidpmat_ctx->N,fetidpmat_ctx->N,fetidpmat_ctx,&newmat);CHKERRQ(ierr);
   ierr = MatShellSetOperation(newmat,MATOP_MULT,(void (*)(void))FETIDPMatMult);CHKERRQ(ierr);
   ierr = MatShellSetOperation(newmat,MATOP_MULT_TRANSPOSE,(void (*)(void))FETIDPMatMultTranspose);CHKERRQ(ierr);
   ierr = MatShellSetOperation(newmat,MATOP_DESTROY,(void (*)(void))PCBDDCDestroyFETIDPMat);CHKERRQ(ierr);

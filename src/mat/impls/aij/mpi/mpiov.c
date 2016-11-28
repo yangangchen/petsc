@@ -1191,9 +1191,9 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_single_Local(Mat C,PetscInt ismax,const 
   PetscInt       *cworkB,lwrite,*bj = b->j;
   PetscScalar    *vworkA,*vworkB,*a_a = a->a,*b_a = b->a;
   MPI_Request    *s_waits1,*r_waits1,*s_waits2,*r_waits2,*r_waits3;
-  MPI_Request    *r_waits4,*s_waits3 = NULL,*s_waits4;
-  MPI_Status     *r_status1,*r_status2,*s_status1,*s_status3 = NULL,*s_status2;
-  MPI_Status     *r_status3 = NULL,*r_status4,*s_status4;
+  MPI_Request    *r_waits4,*s_waits3,*s_waits4;
+  MPI_Status     *r_status1,*r_status2,*s_status1,*s_status3,*s_status2;
+  MPI_Status     *r_status3,*r_status4,*s_status4;
   MPI_Comm       comm;
   PetscScalar    **rbuf4,**sbuf_aa,*vals,*sbuf_aa_i,*rbuf4_i;
   PetscMPIInt    *onodes1,*olengths1,idex,end;

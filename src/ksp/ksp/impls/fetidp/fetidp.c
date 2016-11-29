@@ -313,7 +313,7 @@ static PetscErrorCode KSPFETIDPSetUpOperators(KSP ksp)
       PC_IS                  *pcis = (PC_IS*)fetidp->innerbddc->data;
       Mat_IS                 *matis = (Mat_IS*)(Ap->data);
       ISLocalToGlobalMapping l2g;
-      IS                     II,pII,lPall,Pall;
+      IS                     II,pII,lPall,Pall,is1,is2;
       const PetscInt         *idxs;
       PetscInt               nl,ni,*widxs;
       PetscInt               i,j,n_neigh,*neigh,*n_shared,**shared,*count;
@@ -382,7 +382,19 @@ static PetscErrorCode KSPFETIDPSetUpOperators(KSP ksp)
       } else {
         ierr = ISDifference(Pall,pII,&pP);CHKERRQ(ierr);
         ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_pP",(PetscObject)pP);CHKERRQ(ierr);
+        /* need all local pressure dofs */
+        ierr = PetscMemzero(matis->sf_leafdata,n*sizeof(PetscInt));CHKERRQ(ierr);
+        ierr = PetscMemzero(matis->sf_rootdata,nl*sizeof(PetscInt));CHKERRQ(ierr);
+        ierr = ISGetLocalSize(Pall,&ni);CHKERRQ(ierr);
+        ierr = ISGetIndices(Pall,&idxs);CHKERRQ(ierr);
+        for (i=0;i<ni;i++) matis->sf_rootdata[idxs[i]-rst] = 1;
+        ierr = ISRestoreIndices(Pall,&idxs);CHKERRQ(ierr);
+        ierr = PetscSFBcastBegin(matis->sf,MPIU_INT,matis->sf_rootdata,matis->sf_leafdata);CHKERRQ(ierr);
+        ierr = PetscSFBcastEnd(matis->sf,MPIU_INT,matis->sf_rootdata,matis->sf_leafdata);CHKERRQ(ierr);
+        for (i=0,ni=0;i<n;i++) if (matis->sf_leafdata[i]) widxs[ni++] = i;
+        ierr = ISCreateGeneral(PETSC_COMM_SELF,ni,widxs,PETSC_COPY_VALUES,&lPall);CHKERRQ(ierr);
       }
+
       if (flip) {
         PetscInt npl;
         if (!Pall) {
@@ -410,10 +422,8 @@ static PetscErrorCode KSPFETIDPSetUpOperators(KSP ksp)
         ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_flip",(PetscObject)rhs_flip);CHKERRQ(ierr);
         ierr = ISRestoreIndices(Pall,&idxs);CHKERRQ(ierr);
       }
-      ierr = ISDestroy(&lPall);CHKERRQ(ierr);
       ierr = ISDestroy(&Pall);CHKERRQ(ierr);
       ierr = ISDestroy(&pII);CHKERRQ(ierr);
-      ierr = ISDestroy(&II);CHKERRQ(ierr);
 
       /* local interface pressures in subdomain-wise and global ordering */
       ierr = PetscMemzero(matis->sf_leafdata,n*sizeof(PetscInt));CHKERRQ(ierr);
@@ -429,9 +439,9 @@ static PetscErrorCode KSPFETIDPSetUpOperators(KSP ksp)
         ierr = ISLocalToGlobalMappingApply(l2g,ni,widxs,widxs+ni);CHKERRQ(ierr);
         ierr = ISCreateGeneral(PETSC_COMM_SELF,ni,widxs,PETSC_COPY_VALUES,&lP);CHKERRQ(ierr);
         ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_lP",(PetscObject)lP);CHKERRQ(ierr);
-        ierr = ISCreateGeneral(PetscObjectComm((PetscObject)ksp),ni,widxs+ni,PETSC_COPY_VALUES,&Pall);CHKERRQ(ierr);
-        ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_gP",(PetscObject)Pall);CHKERRQ(ierr);
-        ierr = ISDestroy(&Pall);CHKERRQ(ierr);
+        ierr = ISCreateGeneral(PetscObjectComm((PetscObject)ksp),ni,widxs+ni,PETSC_COPY_VALUES,&is1);CHKERRQ(ierr);
+        ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_gP",(PetscObject)is1);CHKERRQ(ierr);
+        ierr = ISDestroy(&is1);CHKERRQ(ierr);
       } else {
         ierr = ISGetLocalSize(lP,&ni);CHKERRQ(ierr);
         ierr = ISGetIndices(lP,&idxs);CHKERRQ(ierr);
@@ -441,15 +451,33 @@ static PetscErrorCode KSPFETIDPSetUpOperators(KSP ksp)
         ierr = ISRestoreIndices(lP,&idxs);CHKERRQ(ierr);
         ierr = PetscSFReduceBegin(matis->sf,MPIU_INT,matis->sf_leafdata,matis->sf_rootdata,MPIU_REPLACE);CHKERRQ(ierr);
         ierr = ISLocalToGlobalMappingApply(l2g,ni,idxs,widxs);CHKERRQ(ierr);
-        ierr = ISCreateGeneral(PetscObjectComm((PetscObject)ksp),ni,widxs,PETSC_COPY_VALUES,&Pall);CHKERRQ(ierr);
-        ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_gP",(PetscObject)Pall);CHKERRQ(ierr);
-        ierr = ISDestroy(&Pall);CHKERRQ(ierr);
+        ierr = ISCreateGeneral(PetscObjectComm((PetscObject)ksp),ni,widxs,PETSC_COPY_VALUES,&is1);CHKERRQ(ierr);
+        ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_gP",(PetscObject)is1);CHKERRQ(ierr);
+        ierr = ISDestroy(&is1);CHKERRQ(ierr);
         ierr = PetscSFReduceEnd(matis->sf,MPIU_INT,matis->sf_leafdata,matis->sf_rootdata,MPIU_REPLACE);CHKERRQ(ierr);
         for (i=0,ni=0;i<nl;i++) if (matis->sf_rootdata[i]) widxs[ni++] = i+rst;
         ierr = ISCreateGeneral(PetscObjectComm((PetscObject)ksp),ni,widxs,PETSC_COPY_VALUES,&pP);CHKERRQ(ierr);
         ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_pP",(PetscObject)pP);CHKERRQ(ierr);
       }
       ierr = PetscFree(widxs);CHKERRQ(ierr);
+
+      /* We may want to use a discrete harmonic solver instead
+         of a Stokes harmonic for the Dirichler preconditioner
+         Need to extract the interior pressure dofs in interior dofs ordering */
+      ierr = ISDifference(lPall,lP,&is1);CHKERRQ(ierr);
+      ierr = ISDifference(II,is1,&is2);CHKERRQ(ierr);
+      ierr = ISDestroy(&is1);CHKERRQ(ierr);
+      ierr = ISLocalToGlobalMappingCreateIS(II,&l2g);CHKERRQ(ierr);
+      ierr = ISGlobalToLocalMappingApplyIS(l2g,IS_GTOLM_DROP,is2,&is1);CHKERRQ(ierr);
+      ierr = ISGetLocalSize(is1,&i);CHKERRQ(ierr);
+      ierr = ISGetLocalSize(is2,&j);CHKERRQ(ierr);
+      if (i != j) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Inconsistent local sizes %D and %D for iP",i,j);
+      ierr = PetscObjectCompose((PetscObject)fetidp->innerbddc,"__KSPFETIDP_iP",(PetscObject)is1);CHKERRQ(ierr);
+      ierr = ISLocalToGlobalMappingDestroy(&l2g);CHKERRQ(ierr);
+      ierr = ISDestroy(&is1);CHKERRQ(ierr);
+      ierr = ISDestroy(&is2);CHKERRQ(ierr);
+      ierr = ISDestroy(&lPall);CHKERRQ(ierr);
+      ierr = ISDestroy(&II);CHKERRQ(ierr);
 
       /* exclude interface pressures from the inner BDDC */
       if (pcbddc->DirichletBoundariesLocal) {
@@ -652,10 +680,11 @@ static PetscErrorCode KSPSetUp_FETIDP(KSP ksp)
     Mat F; /* the FETI-DP matrix */
     PC  D; /* the FETI-DP preconditioner */
     ierr = KSPReset(fetidp->innerksp);CHKERRQ(ierr);
-    ierr = PCBDDCCreateFETIDPOperators(fetidp->innerbddc,fetidp->fully_redundant,&F,&D);CHKERRQ(ierr);
+    ierr = PCBDDCCreateFETIDPOperators(fetidp->innerbddc,fetidp->fully_redundant,((PetscObject)ksp)->prefix,&F,&D);CHKERRQ(ierr);
     ierr = KSPSetOperators(fetidp->innerksp,F,F);CHKERRQ(ierr);
     ierr = KSPSetTolerances(fetidp->innerksp,ksp->rtol,ksp->abstol,ksp->divtol,ksp->max_it);CHKERRQ(ierr);
     ierr = KSPSetPC(fetidp->innerksp,D);CHKERRQ(ierr);
+    ierr = KSPSetFromOptions(fetidp->innerksp);CHKERRQ(ierr);
     ierr = MatCreateVecs(F,&(fetidp->innerksp)->vec_rhs,&(fetidp->innerksp)->vec_sol);CHKERRQ(ierr);
     ierr = MatDestroy(&F);CHKERRQ(ierr);
     ierr = PCDestroy(&D);CHKERRQ(ierr);
@@ -736,35 +765,20 @@ static PetscErrorCode KSPView_FETIDP(KSP ksp,PetscViewer viewer)
   PetscFunctionBegin;
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);CHKERRQ(ierr);
   if (iascii) {
-    ierr = PetscViewerASCIIPrintf(viewer,"  FETI_DP: fully redundant: %D\n",fetidp->fully_redundant);CHKERRQ(ierr);
-    ierr = PetscViewerASCIIPrintf(viewer,"  FETI_DP: saddle point:    %D\n",fetidp->saddlepoint);CHKERRQ(ierr);
-    ierr = PetscViewerASCIIPrintf(viewer,"  FETI_DP: inner solver details\n");CHKERRQ(ierr);
+    ierr = PetscViewerASCIIPrintf(viewer,"  FETI-DP: fully redundant: %D\n",fetidp->fully_redundant);CHKERRQ(ierr);
+    ierr = PetscViewerASCIIPrintf(viewer,"  FETI-DP: saddle point:    %D\n",fetidp->saddlepoint);CHKERRQ(ierr);
+    ierr = PetscViewerASCIIPrintf(viewer,"  FETI-DP: inner solver details\n");CHKERRQ(ierr);
     ierr = PetscViewerASCIIAddTab(viewer,2);CHKERRQ(ierr);
   }
   ierr = KSPView(fetidp->innerksp,viewer);CHKERRQ(ierr);
   if (iascii) {
     ierr = PetscViewerASCIISubtractTab(viewer,2);CHKERRQ(ierr);
-    ierr = PetscViewerASCIIPrintf(viewer,"  FETI_DP: BDDC solver details\n");CHKERRQ(ierr);
+    ierr = PetscViewerASCIIPrintf(viewer,"  FETI-DP: BDDC solver details\n");CHKERRQ(ierr);
     ierr = PetscViewerASCIIAddTab(viewer,2);CHKERRQ(ierr);
   }
   ierr = PCView(fetidp->innerbddc,viewer);CHKERRQ(ierr);
   if (iascii) {
     ierr = PetscViewerASCIISubtractTab(viewer,2);CHKERRQ(ierr);
-  }
-  if (fetidp->saddlepoint) {
-    KSP kP;
-
-    ierr = PetscObjectQuery((PetscObject)fetidp->innerbddc,"__KSPFETIDP_PKSP",(PetscObject*)&kP);CHKERRQ(ierr);
-    if (kP) {
-      if (iascii) {
-        ierr = PetscViewerASCIIPrintf(viewer,"  FETI_DP: pressure solver details\n");CHKERRQ(ierr);
-        ierr = PetscViewerASCIIAddTab(viewer,2);CHKERRQ(ierr);
-      }
-      ierr = KSPView(kP,viewer);CHKERRQ(ierr);
-      if (iascii) {
-        ierr = PetscViewerASCIISubtractTab(viewer,2);CHKERRQ(ierr);
-      }
-    }
   }
   PetscFunctionReturn(0);
 }
@@ -789,7 +803,6 @@ static PetscErrorCode KSPSetFromOptions_FETIDP(PetscOptionItems *PetscOptionsObj
   ierr = PetscOptionsBool("-ksp_fetidp_saddlepoint","Activates support for saddle-point problems",NULL,fetidp->saddlepoint,&fetidp->saddlepoint,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsTail();CHKERRQ(ierr);
   ierr = PCSetFromOptions(fetidp->innerbddc);CHKERRQ(ierr);
-  ierr = KSPSetFromOptions(fetidp->innerksp);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

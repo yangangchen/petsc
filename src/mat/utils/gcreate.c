@@ -266,7 +266,7 @@ PetscErrorCode  MatSetFromOptions(Mat B)
 
 #undef __FUNCT__
 #define __FUNCT__ "MatXAIJSetPreallocation"
-/*@
+/*@C
    MatXAIJSetPreallocation - set preallocation for serial and parallel AIJ, BAIJ, and SBAIJ matrices and their unassembled versions.
 
    Collective on Mat

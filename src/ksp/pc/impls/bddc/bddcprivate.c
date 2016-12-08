@@ -2797,7 +2797,7 @@ PetscErrorCode PCBDDCAdaptiveSelection(PC pc)
   PetscFunctionBegin;
   if (!sub_schurs) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_PLIB,"Adaptive selection of constraints requires SubSchurs data");
   if (!sub_schurs->schur_explicit) SETERRQ(PetscObjectComm((PetscObject)pc),PETSC_ERR_SUP,"Adaptive selection of constraints requires MUMPS and/or MKL_CPARDISO");
-  if (sub_schurs->n_subs && (!sub_schurs->is_hermitian || !sub_schurs->is_posdef)) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_SUP,"Adaptive selection not yet implemented for general matrix pencils (herm %d, posdef %d)\n",sub_schurs->is_hermitian,sub_schurs->is_posdef);
+  if (sub_schurs->n_subs && (!sub_schurs->is_hermitian || !sub_schurs->is_posdef)) SETERRQ2(PETSC_COMM_SELF,PETSC_ERR_SUP,"Adaptive selection not yet implemented for general matrix pencils (herm %d, posdef %d)\nRerun with -sub_schurs_hermitian 1 -sub_schurs_posdef 1 if the problem is SPD",sub_schurs->is_hermitian,sub_schurs->is_posdef);
 
   if (pcbddc->dbg_flag) {
     ierr = PetscViewerFlush(pcbddc->dbg_viewer);CHKERRQ(ierr);
@@ -7024,13 +7024,8 @@ PetscErrorCode PCBDDCMatISSubassemble(Mat mat, IS is_sends, PetscInt n_subdomain
     }
     switch (new_local_type_private) {
       case MATDENSE_PRIVATE:
-        if (n_recvs>1) { /* subassembling of dense matrices does not give a dense matrix! */
-          new_local_type = MATSEQAIJ;
-          bs = 1;
-        } else { /* if I receive only 1 dense matrix */
-          new_local_type = MATSEQDENSE;
-          bs = 1;
-        }
+        new_local_type = MATSEQAIJ;
+        bs = 1;
         break;
       case MATAIJ_PRIVATE:
         new_local_type = MATSEQAIJ;
@@ -7046,8 +7041,8 @@ PetscErrorCode PCBDDCMatISSubassemble(Mat mat, IS is_sends, PetscInt n_subdomain
         SETERRQ2(comm,PETSC_ERR_SUP,"Unsupported private type %d in %s",new_local_type_private,__FUNCT__);
         break;
     }
-  } else { /* by default, new_local_type is seqdense */
-    new_local_type = MATSEQDENSE;
+  } else { /* by default, new_local_type is seqaij */
+    new_local_type = MATSEQAIJ;
     bs = 1;
   }
 
@@ -8297,6 +8292,7 @@ PetscErrorCode PCBDDCInitSubSchurs(PC pc)
     ierr = PCBDDCSubSchursCreate(&pcbddc->sub_schurs);CHKERRQ(ierr);
   }
   ierr = PCBDDCSubSchursInit(pcbddc->sub_schurs,pcis->is_I_local,pcis->is_B_local,graph,pcis->BtoNmap,pcbddc->sub_schurs_rebuild);CHKERRQ(ierr);
+  pcbddc->sub_schurs->prefix = ((PetscObject)pc)->prefix;
 
   /* free graph struct */
   if (pcbddc->sub_schurs_rebuild) {

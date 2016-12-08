@@ -25,6 +25,7 @@ struct _PCBDDCGraph {
   PetscInt               *special_dof;
   PetscInt               custom_minimal_size;
   PetscBool              twodim;
+  PetscBool              twodimset;
   PetscBool              has_dirichlet;
   IS                     dirdofs;
   IS                     dirdofsB;
@@ -126,6 +127,8 @@ struct _PCBDDCSubSchurs {
   KSP       *change;
   IS        *change_primal_sub;
   PetscBool change_with_qr;
+  /* prefix */
+  char      *prefix;
 };
 typedef struct _PCBDDCSubSchurs *PCBDDCSubSchurs;
 
@@ -185,6 +188,7 @@ struct _FETIDPMat_ctx {
   Vec        temp_solution_D;
   Mat        B_delta;
   Mat        B_Ddelta;
+  PetscBool  deluxe_nonred;
   VecScatter l2g_lambda;
   PC         pc;
   PetscBool  fully_redundant;
@@ -216,5 +220,12 @@ struct _FETIDPPC_ctx {
   Vec        yPg;
 };
 typedef struct _FETIDPPC_ctx *FETIDPPC_ctx;
+
+struct _BDdelta_DN {
+  Mat BD;
+  KSP kBD;
+  Vec work;
+};
+typedef struct _BDdelta_DN *BDdelta_DN;
 
 #endif

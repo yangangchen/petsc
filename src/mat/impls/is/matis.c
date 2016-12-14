@@ -175,66 +175,6 @@ PetscErrorCode  MatISSetUpSF(Mat A)
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "MatGetInfo_IS"
-static PetscErrorCode MatGetInfo_IS(Mat A,MatInfoType flag,MatInfo *ginfo)
-{
-  Mat_IS         *matis = (Mat_IS*)A->data;
-  MatInfo        info;
-  PetscReal      isend[6],irecv[6];
-  PetscInt       bs;
-  PetscErrorCode ierr;
-
-  PetscFunctionBegin;
-  ierr = MatGetBlockSize(A,&bs);CHKERRQ(ierr);
-  if (matis->A->ops->getinfo) {
-    ierr     = MatGetInfo(matis->A,MAT_LOCAL,&info);CHKERRQ(ierr);
-    isend[0] = info.nz_used;
-    isend[1] = info.nz_allocated;
-    isend[2] = info.nz_unneeded;
-    isend[3] = info.memory;
-    isend[4] = info.mallocs;
-  } else {
-    isend[0] = 0.;
-    isend[1] = 0.;
-    isend[2] = 0.;
-    isend[3] = 0.;
-    isend[4] = 0.;
-  }
-  isend[5] = matis->A->num_ass;
-  if (flag == MAT_LOCAL) {
-    ginfo->nz_used      = isend[0];
-    ginfo->nz_allocated = isend[1];
-    ginfo->nz_unneeded  = isend[2];
-    ginfo->memory       = isend[3];
-    ginfo->mallocs      = isend[4];
-    ginfo->assemblies   = isend[5];
-  } else if (flag == MAT_GLOBAL_MAX) {
-    ierr = MPIU_Allreduce(isend,irecv,6,MPIU_REAL,MPIU_MAX,PetscObjectComm((PetscObject)A));CHKERRQ(ierr);
-
-    ginfo->nz_used      = irecv[0];
-    ginfo->nz_allocated = irecv[1];
-    ginfo->nz_unneeded  = irecv[2];
-    ginfo->memory       = irecv[3];
-    ginfo->mallocs      = irecv[4];
-    ginfo->assemblies   = irecv[5];
-  } else if (flag == MAT_GLOBAL_SUM) {
-    ierr = MPIU_Allreduce(isend,irecv,5,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)A));CHKERRQ(ierr);
-
-    ginfo->nz_used      = irecv[0];
-    ginfo->nz_allocated = irecv[1];
-    ginfo->nz_unneeded  = irecv[2];
-    ginfo->memory       = irecv[3];
-    ginfo->mallocs      = irecv[4];
-    ginfo->assemblies   = A->num_ass;
-  }
-  ginfo->block_size        = bs;
-  ginfo->fill_ratio_given  = 0;
-  ginfo->fill_ratio_needed = 0;
-  ginfo->factor_mallocs    = 0;
-  PetscFunctionReturn(0);
-}
-
-#undef __FUNCT__
 #define __FUNCT__ "MatConvert_Nest_IS"
 PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse,Mat *newmat)
 {
@@ -448,8 +388,8 @@ PETSC_INTERN PetscErrorCode MatConvert_Nest_IS(Mat A,MatType type,MatReuse reuse
         ierr = PetscSFBcastBegin(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
         ierr = PetscSFBcastEnd(matis->csf,MPIU_INT,idxs,l2gidxs+stl);CHKERRQ(ierr);
       }
-      ierr  = ISRestoreIndices(iscol[i],&idxs);CHKERRQ(ierr);
-      stl  += lc[i];
+      ierr = ISRestoreIndices(iscol[i],&idxs);CHKERRQ(ierr);
+      stl += lc[i];
     }
     ierr = ISLocalToGlobalMappingCreate(comm,1,stl,l2gidxs,PETSC_OWN_POINTER,&cl2g);CHKERRQ(ierr);
 
@@ -601,6 +541,66 @@ static PetscErrorCode MatDiagonalScale_IS(Mat A, Vec l, Vec r)
     ierr = VecRestoreArray(rr,&x);CHKERRQ(ierr);
   }
   ierr = MatDiagonalScale(matis->A,ll,rr);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "MatGetInfo_IS"
+static PetscErrorCode MatGetInfo_IS(Mat A,MatInfoType flag,MatInfo *ginfo)
+{
+  Mat_IS         *matis = (Mat_IS*)A->data;
+  MatInfo        info;
+  PetscReal      isend[6],irecv[6];
+  PetscInt       bs;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = MatGetBlockSize(A,&bs);CHKERRQ(ierr);
+  if (matis->A->ops->getinfo) {
+    ierr     = MatGetInfo(matis->A,MAT_LOCAL,&info);CHKERRQ(ierr);
+    isend[0] = info.nz_used;
+    isend[1] = info.nz_allocated;
+    isend[2] = info.nz_unneeded;
+    isend[3] = info.memory;
+    isend[4] = info.mallocs;
+  } else {
+    isend[0] = 0.;
+    isend[1] = 0.;
+    isend[2] = 0.;
+    isend[3] = 0.;
+    isend[4] = 0.;
+  }
+  isend[5] = matis->A->num_ass;
+  if (flag == MAT_LOCAL) {
+    ginfo->nz_used      = isend[0];
+    ginfo->nz_allocated = isend[1];
+    ginfo->nz_unneeded  = isend[2];
+    ginfo->memory       = isend[3];
+    ginfo->mallocs      = isend[4];
+    ginfo->assemblies   = isend[5];
+  } else if (flag == MAT_GLOBAL_MAX) {
+    ierr = MPIU_Allreduce(isend,irecv,6,MPIU_REAL,MPIU_MAX,PetscObjectComm((PetscObject)A));CHKERRQ(ierr);
+
+    ginfo->nz_used      = irecv[0];
+    ginfo->nz_allocated = irecv[1];
+    ginfo->nz_unneeded  = irecv[2];
+    ginfo->memory       = irecv[3];
+    ginfo->mallocs      = irecv[4];
+    ginfo->assemblies   = irecv[5];
+  } else if (flag == MAT_GLOBAL_SUM) {
+    ierr = MPIU_Allreduce(isend,irecv,5,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)A));CHKERRQ(ierr);
+
+    ginfo->nz_used      = irecv[0];
+    ginfo->nz_allocated = irecv[1];
+    ginfo->nz_unneeded  = irecv[2];
+    ginfo->memory       = irecv[3];
+    ginfo->mallocs      = irecv[4];
+    ginfo->assemblies   = A->num_ass;
+  }
+  ginfo->block_size        = bs;
+  ginfo->fill_ratio_given  = 0;
+  ginfo->fill_ratio_needed = 0;
+  ginfo->factor_mallocs    = 0;
   PetscFunctionReturn(0);
 }
 

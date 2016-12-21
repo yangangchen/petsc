@@ -2,8 +2,6 @@
 #include <petsc/private/petscfeimpl.h>  /*I      "petscfe.h"       I*/
 #include <petscblaslapack.h>
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexGetLineIntersection_2D_Internal"
 static PetscErrorCode DMPlexGetLineIntersection_2D_Internal(const PetscReal segmentA[], const PetscReal segmentB[], PetscReal intersection[], PetscBool *hasIntersection)
 {
   const PetscReal p0_x  = segmentA[0*2+0];
@@ -38,8 +36,6 @@ static PetscErrorCode DMPlexGetLineIntersection_2D_Internal(const PetscReal segm
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexLocatePoint_Simplex_2D_Internal"
 static PetscErrorCode DMPlexLocatePoint_Simplex_2D_Internal(DM dm, const PetscScalar point[], PetscInt c, PetscInt *cell)
 {
   const PetscInt  embedDim = 2;
@@ -60,8 +56,6 @@ static PetscErrorCode DMPlexLocatePoint_Simplex_2D_Internal(DM dm, const PetscSc
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexClosestPoint_Simplex_2D_Internal"
 static PetscErrorCode DMPlexClosestPoint_Simplex_2D_Internal(DM dm, const PetscScalar point[], PetscInt c, PetscReal cpoint[])
 {
   const PetscInt  embedDim = 2;
@@ -89,8 +83,6 @@ static PetscErrorCode DMPlexClosestPoint_Simplex_2D_Internal(DM dm, const PetscS
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexLocatePoint_General_2D_Internal"
 static PetscErrorCode DMPlexLocatePoint_General_2D_Internal(DM dm, const PetscScalar point[], PetscInt c, PetscInt *cell)
 {
   PetscSection       coordSection;
@@ -123,8 +115,6 @@ static PetscErrorCode DMPlexLocatePoint_General_2D_Internal(DM dm, const PetscSc
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexLocatePoint_Simplex_3D_Internal"
 static PetscErrorCode DMPlexLocatePoint_Simplex_3D_Internal(DM dm, const PetscScalar point[], PetscInt c, PetscInt *cell)
 {
   const PetscInt embedDim = 3;
@@ -146,8 +136,6 @@ static PetscErrorCode DMPlexLocatePoint_Simplex_3D_Internal(DM dm, const PetscSc
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexLocatePoint_General_3D_Internal"
 static PetscErrorCode DMPlexLocatePoint_General_3D_Internal(DM dm, const PetscScalar point[], PetscInt c, PetscInt *cell)
 {
   PetscSection   coordSection;
@@ -198,8 +186,6 @@ static PetscErrorCode DMPlexLocatePoint_General_3D_Internal(DM dm, const PetscSc
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "PetscGridHashInitialize_Internal"
 static PetscErrorCode PetscGridHashInitialize_Internal(PetscGridHash box, PetscInt dim, const PetscScalar point[])
 {
   PetscInt d;
@@ -210,8 +196,6 @@ static PetscErrorCode PetscGridHashInitialize_Internal(PetscGridHash box, PetscI
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "PetscGridHashCreate"
 PetscErrorCode PetscGridHashCreate(MPI_Comm comm, PetscInt dim, const PetscScalar point[], PetscGridHash *box)
 {
   PetscErrorCode ierr;
@@ -222,8 +206,6 @@ PetscErrorCode PetscGridHashCreate(MPI_Comm comm, PetscInt dim, const PetscScala
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "PetscGridHashEnlarge"
 PetscErrorCode PetscGridHashEnlarge(PetscGridHash box, const PetscScalar point[])
 {
   PetscInt d;
@@ -236,8 +218,6 @@ PetscErrorCode PetscGridHashEnlarge(PetscGridHash box, const PetscScalar point[]
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "PetscGridHashSetGrid"
 /*
   PetscGridHashSetGrid - Divide the grid into boxes
 
@@ -270,8 +250,6 @@ PetscErrorCode PetscGridHashSetGrid(PetscGridHash box, const PetscInt n[], const
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "PetscGridHashGetEnclosingBox"
 /*
   PetscGridHashGetEnclosingBox - Find the grid boxes containing each input point
 
@@ -314,8 +292,6 @@ PetscErrorCode PetscGridHashGetEnclosingBox(PetscGridHash box, PetscInt numPoint
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "PetscGridHashDestroy"
 PetscErrorCode PetscGridHashDestroy(PetscGridHash *box)
 {
   PetscErrorCode ierr;
@@ -330,8 +306,6 @@ PetscErrorCode PetscGridHashDestroy(PetscGridHash *box)
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexLocatePoint_Internal"
 PetscErrorCode DMPlexLocatePoint_Internal(DM dm, PetscInt dim, const PetscScalar point[], PetscInt cellStart, PetscInt *cell)
 {
   PetscInt       coneSize;
@@ -371,8 +345,6 @@ PetscErrorCode DMPlexLocatePoint_Internal(DM dm, PetscInt dim, const PetscScalar
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexClosestPoint_Internal"
 /*
   DMPlexClosestPoint_Internal - Returns the closest point in the cell to the given point
 */
@@ -419,8 +391,6 @@ PetscErrorCode DMPlexClosestPoint_Internal(DM dm, PetscInt dim, const PetscScala
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeGridHash_Internal"
 /*
   DMPlexComputeGridHash_Internal - Create a grid hash structure covering the Plex
 
@@ -550,8 +520,6 @@ PetscErrorCode DMPlexComputeGridHash_Internal(DM dm, PetscGridHash *localBox)
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMLocatePoints_Plex"
 PetscErrorCode DMLocatePoints_Plex(DM dm, Vec v, DMPointLocationType ltype, PetscSF cellSF)
 {
   DM_Plex        *mesh = (DM_Plex *) dm->data;
@@ -663,8 +631,6 @@ PetscErrorCode DMLocatePoints_Plex(DM dm, Vec v, DMPointLocationType ltype, Pets
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeProjection2Dto1D"
 /*@C
   DMPlexComputeProjection2Dto1D - Rewrite coordinates to be the 1D projection of the 2D coordinates
 
@@ -695,8 +661,6 @@ PetscErrorCode DMPlexComputeProjection2Dto1D(PetscScalar coords[], PetscReal R[]
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeProjection3Dto1D"
 /*@C
   DMPlexComputeProjection3Dto1D - Rewrite coordinates to be the 1D projection of the 3D coordinates
 
@@ -744,8 +708,6 @@ PetscErrorCode DMPlexComputeProjection3Dto1D(PetscScalar coords[], PetscReal R[]
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeProjection3Dto2D"
 /*@
   DMPlexComputeProjection3Dto2D - Rewrite coordinates to be the 2D projection of the 3D coordinates
 
@@ -856,8 +818,6 @@ PetscErrorCode DMPlexComputeProjection3Dto2D(PetscInt coordSize, PetscScalar coo
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "Volume_Triangle_Internal"
 PETSC_UNUSED
 PETSC_STATIC_INLINE void Volume_Triangle_Internal(PetscReal *vol, PetscReal coords[])
 {
@@ -882,16 +842,12 @@ PETSC_STATIC_INLINE void Volume_Triangle_Internal(PetscReal *vol, PetscReal coor
   (void)PetscLogFlops(5.0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "Volume_Triangle_Origin_Internal"
 PETSC_STATIC_INLINE void Volume_Triangle_Origin_Internal(PetscReal *vol, PetscReal coords[])
 {
   DMPlex_Det2D_Internal(vol, coords);
   *vol *= 0.5;
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "Volume_Tetrahedron_Internal"
 PETSC_UNUSED
 PETSC_STATIC_INLINE void Volume_Tetrahedron_Internal(PetscReal *vol, PetscReal coords[])
 {
@@ -920,16 +876,12 @@ PETSC_STATIC_INLINE void Volume_Tetrahedron_Internal(PetscReal *vol, PetscReal c
   (void)PetscLogFlops(10.0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "Volume_Tetrahedron_Origin_Internal"
 PETSC_STATIC_INLINE void Volume_Tetrahedron_Origin_Internal(PetscReal *vol, PetscReal coords[])
 {
   DMPlex_Det3D_Internal(vol, coords);
   *vol *= -0.16666666666666666666666;
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputePointGeometry_Internal"
 static PetscErrorCode DMPlexComputePointGeometry_Internal(DM dm, PetscInt e, PetscReal v0[], PetscReal J[], PetscReal invJ[], PetscReal *detJ)
 {
   PetscSection   coordSection;
@@ -959,8 +911,6 @@ static PetscErrorCode DMPlexComputePointGeometry_Internal(DM dm, PetscInt e, Pet
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeLineGeometry_Internal"
 static PetscErrorCode DMPlexComputeLineGeometry_Internal(DM dm, PetscInt e, PetscReal v0[], PetscReal J[], PetscReal invJ[], PetscReal *detJ)
 {
   PetscSection   coordSection;
@@ -1020,8 +970,6 @@ static PetscErrorCode DMPlexComputeLineGeometry_Internal(DM dm, PetscInt e, Pets
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeTriangleGeometry_Internal"
 static PetscErrorCode DMPlexComputeTriangleGeometry_Internal(DM dm, PetscInt e, PetscReal v0[], PetscReal J[], PetscReal invJ[], PetscReal *detJ)
 {
   PetscSection   coordSection;
@@ -1081,8 +1029,6 @@ static PetscErrorCode DMPlexComputeTriangleGeometry_Internal(DM dm, PetscInt e, 
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeRectangleGeometry_Internal"
 static PetscErrorCode DMPlexComputeRectangleGeometry_Internal(DM dm, PetscInt e, PetscInt Nq, const PetscReal points[], PetscReal v[], PetscReal J[], PetscReal invJ[], PetscReal *detJ)
 {
   PetscSection   coordSection;
@@ -1231,8 +1177,6 @@ static PetscErrorCode DMPlexComputeRectangleGeometry_Internal(DM dm, PetscInt e,
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeTetrahedronGeometry_Internal"
 static PetscErrorCode DMPlexComputeTetrahedronGeometry_Internal(DM dm, PetscInt e, PetscReal v0[], PetscReal J[], PetscReal invJ[], PetscReal *detJ)
 {
   PetscSection   coordSection;
@@ -1263,8 +1207,6 @@ static PetscErrorCode DMPlexComputeTetrahedronGeometry_Internal(DM dm, PetscInt 
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeHexahedronGeometry_Internal"
 static PetscErrorCode DMPlexComputeHexahedronGeometry_Internal(DM dm, PetscInt e, PetscInt Nq, const PetscReal points[], PetscReal v[], PetscReal J[], PetscReal invJ[], PetscReal *detJ)
 {
   PetscSection   coordSection;
@@ -1455,8 +1397,6 @@ static PetscErrorCode DMPlexComputeCellGeometryFEM_Implicit(DM dm, PetscInt cell
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeCellGeometryAffineFEM"
 /*@C
   DMPlexComputeCellGeometryAffineFEM - Assuming an affine map, compute the Jacobian, inverse Jacobian, and Jacobian determinant for a given cell
 
@@ -1580,8 +1520,6 @@ static PetscErrorCode DMPlexComputeCellGeometryFEM_FE(DM dm, PetscFE fe, PetscIn
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeCellGeometryFEM"
 /*@C
   DMPlexComputeCellGeometryFEM - Compute the Jacobian, inverse Jacobian, and Jacobian determinant at each quadrature point in the given cell
 
@@ -1633,8 +1571,6 @@ PetscErrorCode DMPlexComputeCellGeometryFEM(DM dm, PetscInt cell, PetscQuadratur
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeGeometryFVM_1D_Internal"
 static PetscErrorCode DMPlexComputeGeometryFVM_1D_Internal(DM dm, PetscInt dim, PetscInt cell, PetscReal *vol, PetscReal centroid[], PetscReal normal[])
 {
   PetscSection   coordSection;
@@ -1670,8 +1606,6 @@ static PetscErrorCode DMPlexComputeGeometryFVM_1D_Internal(DM dm, PetscInt dim, 
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeGeometryFVM_2D_Internal"
 /* Centroid_i = (\sum_n A_n Cn_i ) / A */
 static PetscErrorCode DMPlexComputeGeometryFVM_2D_Internal(DM dm, PetscInt dim, PetscInt cell, PetscReal *vol, PetscReal centroid[], PetscReal normal[])
 {
@@ -1742,8 +1676,6 @@ static PetscErrorCode DMPlexComputeGeometryFVM_2D_Internal(DM dm, PetscInt dim, 
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeGeometryFVM_3D_Internal"
 /* Centroid_i = (\sum_n V_n Cn_i ) / V */
 static PetscErrorCode DMPlexComputeGeometryFVM_3D_Internal(DM dm, PetscInt dim, PetscInt cell, PetscReal *vol, PetscReal centroid[], PetscReal normal[])
 {
@@ -1825,8 +1757,6 @@ static PetscErrorCode DMPlexComputeGeometryFVM_3D_Internal(DM dm, PetscInt dim, 
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeCellGeometryFVM"
 /*@C
   DMPlexComputeCellGeometryFVM - Compute the volume for a given cell
 
@@ -1877,8 +1807,6 @@ PetscErrorCode DMPlexComputeCellGeometryFVM(DM dm, PetscInt cell, PetscReal *vol
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeGeometryFEM"
 /* This should also take a PetscFE argument I think */
 PetscErrorCode DMPlexComputeGeometryFEM(DM dm, Vec *cellgeom)
 {
@@ -1920,8 +1848,6 @@ PetscErrorCode DMPlexComputeGeometryFEM(DM dm, Vec *cellgeom)
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeGeometryFVM"
 /*@
   DMPlexComputeGeometryFVM - Computes the cell and face geometry for a finite volume method
 
@@ -2078,8 +2004,6 @@ PetscErrorCode DMPlexComputeGeometryFVM(DM dm, Vec *cellgeom, Vec *facegeom)
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexGetMinRadius"
 /*@C
   DMPlexGetMinRadius - Returns the minimum distance from any cell centroid to a face
 
@@ -2104,8 +2028,6 @@ PetscErrorCode DMPlexGetMinRadius(DM dm, PetscReal *minradius)
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexSetMinRadius"
 /*@C
   DMPlexSetMinRadius - Sets the minimum distance from the cell centroid to a face
 
@@ -2127,8 +2049,6 @@ PetscErrorCode DMPlexSetMinRadius(DM dm, PetscReal minradius)
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "BuildGradientReconstruction_Internal"
 static PetscErrorCode BuildGradientReconstruction_Internal(DM dm, PetscFV fvm, DM dmFace, PetscScalar *fgeom, DM dmCell, PetscScalar *cgeom)
 {
   DMLabel        ghostLabel;
@@ -2186,8 +2106,6 @@ static PetscErrorCode BuildGradientReconstruction_Internal(DM dm, PetscFV fvm, D
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "BuildGradientReconstruction_Internal_Tree"
 static PetscErrorCode BuildGradientReconstruction_Internal_Tree(DM dm, PetscFV fvm, DM dmFace, PetscScalar *fgeom, DM dmCell, PetscScalar *cgeom)
 {
   DMLabel        ghostLabel;
@@ -2300,8 +2218,6 @@ static PetscErrorCode BuildGradientReconstruction_Internal_Tree(DM dm, PetscFV f
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexComputeGradientFVM"
 /*@
   DMPlexComputeGradientFVM - Compute geometric factors for gradient reconstruction, which are stored in the geometry data, and compute layout for gradient data
 
@@ -2358,8 +2274,6 @@ PetscErrorCode DMPlexComputeGradientFVM(DM dm, PetscFV fvm, Vec faceGeometry, Ve
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexGetDataFVM"
 PetscErrorCode DMPlexGetDataFVM(DM dm, PetscFV fv, Vec *cellgeom, Vec *facegeom, DM *gradDM)
 {
   PetscObject    cellgeomobj, facegeomobj;
@@ -2403,8 +2317,6 @@ PetscErrorCode DMPlexGetDataFVM(DM dm, PetscFV fv, Vec *cellgeom, Vec *facegeom,
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexCoordinatesToReference_NewtonUpdate"
 static PetscErrorCode DMPlexCoordinatesToReference_NewtonUpdate(PetscInt dimC, PetscInt dimR, PetscScalar *J, PetscScalar *invJ, PetscScalar *work,  PetscReal *resNeg, PetscReal *guess)
 {
   PetscInt l, m;
@@ -2471,8 +2383,6 @@ static PetscErrorCode DMPlexCoordinatesToReference_NewtonUpdate(PetscInt dimC, P
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexCoordinatesToReference_Tensor"
 static PetscErrorCode DMPlexCoordinatesToReference_Tensor(DM dm, PetscInt cell, PetscInt numPoints, const PetscReal realCoords[], PetscReal refCoords[], Vec coords, PetscInt dimC, PetscInt dimR)
 {
   PetscInt       coordSize, i, j, k, l, m, maxIts = 7, numV = (1 << dimR);
@@ -2587,8 +2497,6 @@ static PetscErrorCode DMPlexCoordinatesToReference_Tensor(DM dm, PetscInt cell, 
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexReferenceToCoordinates_Tensor"
 static PetscErrorCode DMPlexReferenceToCoordinates_Tensor(DM dm, PetscInt cell, PetscInt numPoints, const PetscReal refCoords[], PetscReal realCoords[], Vec coords, PetscInt dimC, PetscInt dimR)
 {
   PetscInt       coordSize, i, j, k, l, numV = (1 << dimR);
@@ -2668,8 +2576,6 @@ static PetscErrorCode DMPlexReferenceToCoordinates_Tensor(DM dm, PetscInt cell, 
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexCoordinatesToReference_FE"
 static PetscErrorCode DMPlexCoordinatesToReference_FE(DM dm, PetscFE fe, PetscInt cell, PetscInt numPoints, const PetscReal realCoords[], PetscReal refCoords[], Vec coords, PetscInt dimC, PetscInt dimR)
 {
   PetscInt       numComp, numDof, i, j, k, l, m, maxIter = 7, coordSize;
@@ -2736,8 +2642,6 @@ static PetscErrorCode DMPlexCoordinatesToReference_FE(DM dm, PetscFE fe, PetscIn
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexReferenceToCoordinates_FE"
 static PetscErrorCode DMPlexReferenceToCoordinates_FE(DM dm, PetscFE fe, PetscInt cell, PetscInt numPoints, const PetscReal refCoords[], PetscReal realCoords[], Vec coords, PetscInt dimC, PetscInt dimR)
 {
   PetscInt       numComp, numDof, i, j, k, l, coordSize;
@@ -2781,8 +2685,6 @@ static PetscErrorCode DMPlexReferenceToCoordinates_FE(DM dm, PetscFE fe, PetscIn
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexCoordinatesToReference"
 /*@
   DMPlexCoordinatesToReference - Pull coordinates back from the mesh to the reference element using a single element
   map.  This inversion will be accurate inside the reference element, but may be inaccurate for mappings that do not
@@ -2865,8 +2767,6 @@ PetscErrorCode DMPlexCoordinatesToReference(DM dm, PetscInt cell, PetscInt numPo
   PetscFunctionReturn(0);
 }
 
-#undef __FUNCT__
-#define __FUNCT__ "DMPlexReferenceToCoordinates"
 /*@
   DMPlexReferenceToCoordinates - Map references coordinates to coordinates in the the mesh for a single element map.
 

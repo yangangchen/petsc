@@ -44,8 +44,6 @@ PetscErrorCode PetscAllreduceBarrierCheck(MPI_Comm comm,PetscMPIInt ctn,int line
   Notes:
   This routine calls MPI_Barrier with the communicator of the PETSc Object "A".
 
-  With fortran Use NULL_OBJECT (instead of NULL)
-
    Concepts: barrier
 
 @*/

@@ -1,6 +1,10 @@
 
 static char help[] = "Tests the signal handler.\n";
 
+/*T
+   requires: x
+T*/
+
 #include <petscsys.h>
 
 int CreateError(int n)
@@ -24,3 +28,13 @@ int main(int argc,char **argv)
   return ierr;
 }
 
+
+
+/*TEST
+   
+   test:
+      output_file: output/ex2_1.out
+      redirect_file: ex2.tmp1
+      TODO: Needs further development from conversion
+
+TEST*/

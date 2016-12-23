@@ -149,16 +149,18 @@ static PetscErrorCode MatScale_ADA(Mat mat, PetscReal a)
   PetscFunctionReturn(0);
 }
 
-static PetscErrorCode MatTranspose_ADA(Mat mat,Mat *B)
+static PetscErrorCode MatTranspose_ADA(Mat mat,MatReuse reuse,Mat *B)
 {
   PetscErrorCode ierr;
   TaoMatADACtx   ctx;
 
   PetscFunctionBegin;
-  if (*B){
-    ierr = MatShellGetContext(mat,(void **)&ctx);CHKERRQ(ierr);
+  ierr = MatShellGetContext(mat,(void **)&ctx);CHKERRQ(ierr);
+  if (reuse == MAT_INITIAL_MATRIX){
     ierr = MatDuplicate(mat,MAT_COPY_VALUES,B);CHKERRQ(ierr);
-  }
+  } else if (reuse == MAT_REUSE_MATRIX){
+    ierr = MatCopy(mat,*B,SAME_NONZERO_PATTERN);CHKERRQ(ierr);
+  } else SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Does not support inplace transpose");
   PetscFunctionReturn(0);
 }
 

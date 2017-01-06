@@ -55,11 +55,9 @@ class generateExamples(Petsc):
 
     # Copy petsc tests harness script
     harness_file=os.path.join(self.petsc_dir,"config","petsc_harness.sh")
-    reports_file=os.path.join(self.petsc_dir,"config","report_tests.sh")
+    reports_file=os.path.join(self.petsc_dir,"config","report_tests.py")
     self.testroot_dir=os.path.join(self.arch_dir,"tests")
     if not os.path.isdir(self.testroot_dir): os.makedirs(self.testroot_dir)
-    shutil.copy(harness_file,self.testroot_dir)
-    shutil.copy(reports_file,self.testroot_dir)
 
     return
 
@@ -217,7 +215,6 @@ class generateExamples(Petsc):
     if not testDict.has_key('localrunfiles'): testDict['localrunfiles']=""
     if not testDict.has_key('args'): testDict['args']=""
     defroot=(re.sub("run","",testname) if testname.startswith("run") else testname)
-    if not testDict.has_key('redirect_file'): testDict['redirect_file']=defroot+".tmp"
     if not testDict.has_key('output_file'): testDict['output_file']="output/"+defroot+".out"
 
     # Setup the variables in template_string that need to be substituted
@@ -225,7 +222,6 @@ class generateExamples(Petsc):
     subst['label']=self.nameSpace(defroot,subst['srcdir'])
     subst['output_file']=os.path.join(subst['srcdir'],testDict['output_file'])
     subst['exec']="../"+testDict['execname']
-    subst['redirect_file']=testDict['redirect_file']
     subst['filter']="'"+testDict['filter']+"'"   # Quotes are tricky
     subst['filter_output']=testDict['filter_output']
     subst['localrunfiles']=testDict['localrunfiles']
@@ -310,7 +306,7 @@ class generateExamples(Petsc):
 
     # Now substitute the key variables into the header and footer
     header=self._substVars(subst,example_template.header)
-    footer=re.sub('@TESTSROOT@',subst['testroot'],example_template.footer)
+    footer=re.sub('@TESTROOT@',subst['testroot'],example_template.footer)
 
     # Start writing the file
     fh.write(header+"\n")
@@ -465,15 +461,6 @@ class generateExamples(Petsc):
         isNull=False
         if requirement.startswith("!"):
           requirement=requirement[1:]; isNull=True
-        # Scalar requirement
-        if requirement=="complex":
-          if self.conf['PETSC_SCALAR']=='complex':
-            if isNull:
-              testDict['SKIP']="Non-complex build required"
-              return False
-          else:
-            testDict['SKIP']="Complex build required"
-            return False
         # Precision requirement for reals
         if requirement in self.precision_types:
           if self.conf['PETSC_PRECISION']==requirement:
@@ -526,13 +513,13 @@ class generateExamples(Petsc):
             return False
 
         # Rest should be packages that we can just get from conf
-        if requirement.upper() == 'COMPLEX':  petscconfvar="PETSC_USE_"+requirement.upper()
+        if requirement == "complex":  petscconfvar="PETSC_USE_COMPLEX"
         else:   petscconfvar="PETSC_HAVE_"+requirement.upper()
         if self.conf.get(petscconfvar):
-          if isNull: 
+          if isNull:
             testDict['SKIP']="Not "+petscconfvar+" requirement not met"
             return False
-        else:
+        elif not isNull:
           if debug: print "requirement not found: ", requirement
           testDict['SKIP']=petscconfvar+" requirement not met"
           return False

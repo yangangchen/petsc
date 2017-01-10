@@ -29,13 +29,15 @@ def summarize_results(directory):
 
       summary[var]=summary[var]+val
 
+  print "\n# -------------"
+  print "#   Summary    "
+  print "# -------------"
   print "# FAILED "+summary['failures'].rstrip(', ')
   total=str(summary['total'])
 
   for t in "success failed todo skip".split():
     percent=summary[t]/float(summary['total'])*100
-    prcnt="{:3.1f}".format(percent)
-    print "# "+t+" "+ str(summary[t])+"/"+total+" tests ("+prcnt+'%)'
+    print ("# "+t+" "+ str(summary[t])+"/"+total+" tests (%3.1f%%)") % (percent)
   return
 
 def main():

@@ -613,18 +613,16 @@ class generateExamples(Petsc):
     eval("self."+action+"_summarize(dataDict)")
     return dataDict
 
-  def gen_gnumake(self, fd,prefix='srcs-'):
+  def gen_gnumake(self, fd):
     """
      Overwrite of the method in the base PETSc class 
     """
     def write(stem, srcs):
-        fd.write('%s :=\n' % stem)
         for lang in LANGS:
             fd.write('%(stem)s.%(lang)s := %(srcs)s\n' % dict(stem=stem, lang=lang, srcs=' '.join(srcs[lang]['srcs'])))
-            fd.write('%(stem)s += $(%(stem)s.%(lang)s)\n' % dict(stem=stem, lang=lang))
     for pkg in PKGS:
         srcs = self.gen_pkg(pkg)
-        write(prefix + pkg, srcs)
+        write('testsrcs-' + pkg, srcs)
     return self.gendeps
 
   def gen_pkg(self, pkg):
@@ -653,7 +651,7 @@ class generateExamples(Petsc):
     fd = open(arch_files, 'w')
 
     # Write out the sources
-    gendeps = self.gen_gnumake(fd,prefix="testsrcs-")
+    gendeps = self.gen_gnumake(fd)
 
     # Write out the tests and execname targets
     fd.write("\n#Tests and executables\n")    # Delimiter
@@ -695,14 +693,6 @@ class generateExamples(Petsc):
                       execname if exfile in self.sources[pkg][lang]['srcs'] else fullex))
           # Now write the args:
           fd.write(nmtest+"_ARGS := '"+self.tests[pkg][lang][ftest]['argLabel']+"'\n")
-
-        # rm targets
-        pkglangex=[]
-        for exfile in self.sources[pkg][lang]['srcs']:
-          basedir=os.path.dirname(exfile)
-          localexec=os.path.basename(os.path.splitext(exfile)[0])
-          pkglangex.append(os.path.join("${TESTDIR}",basedir,localexec))
-        fd.write("test-ex-"+pkg+"-"+lang+":= %s\n" % ' '.join(pkglangex))
 
     fd.close()
     return

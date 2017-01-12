@@ -533,7 +533,7 @@ class generateExamples(Petsc):
     """
     if not self.summarize: return
     indent="   "
-    fhname="GenPetscTests_summarize.txt"
+    fhname=os.path.join(self.testroot_dir,'GenPetscTests_summarize.txt')
     fh=open(fhname,"w")
     #print "See ", fhname
     for root in dataDict:
@@ -666,7 +666,7 @@ class generateExamples(Petsc):
           basedir=os.path.dirname(ftest)
           testdeps.append(self.nameSpace(test,basedir))
         fd.write("test-"+pkg+"."+lang+" := "+' '.join(testdeps)+"\n")
-        fd.write('test-%s-%s : $(test-%s.%s)\n' % (pkg, lang, pkg, lang))
+        fd.write('test-%s.%s : $(test-%s.%s)\n' % (pkg, lang, pkg, lang))
 
         # test targets
         for ftest in self.tests[pkg][lang]:

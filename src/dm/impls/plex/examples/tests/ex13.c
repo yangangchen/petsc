@@ -49,8 +49,8 @@ static PetscErrorCode CreateMesh(MPI_Comm comm, AppCtx *user, DM *dm)
   else                  {ierr = DMPlexCreateHexBoxMesh(comm, dim, cells, DM_BOUNDARY_NONE, DM_BOUNDARY_NONE, DM_BOUNDARY_NONE, dm);CHKERRQ(ierr);}
   if (user->testPartition) {
     PetscPartitioner part;
-    const PetscInt  *sizes  = NULL;
-    const PetscInt  *points = NULL;
+    PetscInt        *sizes  = NULL;
+    PetscInt        *points = NULL;
     PetscMPIInt      rank, size;
 
     ierr = MPI_Comm_rank(comm, &rank);CHKERRQ(ierr);

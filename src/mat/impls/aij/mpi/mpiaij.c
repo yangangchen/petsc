@@ -1725,9 +1725,6 @@ PetscErrorCode MatSetOption_MPIAIJ(Mat A,MatOption op,PetscBool flg)
     MatCheckPreallocated(A,1);
     ierr = MatSetOption(a->A,op,flg);CHKERRQ(ierr);
     break;
-  case MAT_SUBMAT_SINGLEIS:
-    A->submat_singleis = flg;
-    break;
   default:
     SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SUP,"unknown option %d",op);
   }

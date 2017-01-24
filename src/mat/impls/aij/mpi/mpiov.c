@@ -2009,12 +2009,19 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ_SingleIS(Mat C,PetscInt ismax,const IS i
 PetscErrorCode MatGetSubMatrices_MPIAIJ(Mat C,PetscInt ismax,const IS isrow[],const IS iscol[],MatReuse scall,Mat *submat[])
 {
   PetscErrorCode ierr;
-  PetscInt       nmax,nstages,i,pos,max_no,nrow,ncol,in[3],out[3];
-  PetscBool      rowflag,colflag,wantallmatrix=PETSC_FALSE,ismax1=PETSC_FALSE;
+  PetscInt       nmax,nstages,i,pos,max_no,nrow,ncol,in[2],out[2];
+  PetscBool      rowflag,colflag,wantallmatrix=PETSC_FALSE;
   Mat_SeqAIJ     *subc;
   Mat_SubMat     *smat;
 
   PetscFunctionBegin;
+  /* Check for special case: each processor has a single IS */
+  if (C->submat_singleis) { /* flag is set in PCSetUp_ASM() to skip MPIU_Allreduce() */
+    ierr = MatGetSubMatrices_MPIAIJ_SingleIS(C,ismax,isrow,iscol,scall,submat);CHKERRQ(ierr);
+    C->submat_singleis = PETSC_FALSE; /* resume its default value in case C will be used for non-singlis */
+    PetscFunctionReturn(0);
+  }
+
   if (scall == MAT_REUSE_MATRIX && !ismax) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"n=0 is not supported for MatGetSubMatrices(mat,n,isrow,iscol,MAT_REUSE_MATRIX,...). Set n=1 with zero-length isrow and iscolumn instead");
 
   /* Collect global wantallmatrix and nstages */
@@ -2044,17 +2051,9 @@ PetscErrorCode MatGetSubMatrices_MPIAIJ(Mat C,PetscInt ismax,const IS isrow[],co
 
     in[0] = -1*(PetscInt)wantallmatrix;
     in[1] = nstages;
-    in[2] = ismax == 1 ? -1 : 0;
-
-    ierr = MPIU_Allreduce(in,out,3,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)C));CHKERRQ(ierr);
+    ierr = MPIU_Allreduce(in,out,2,MPIU_INT,MPI_MAX,PetscObjectComm((PetscObject)C));CHKERRQ(ierr);
     wantallmatrix = (PetscBool)(-out[0]);
     nstages       = out[1]; /* Make sure every processor loops through the global nstages */
-    ismax1 = wantallmatrix ? PETSC_FALSE : (PetscBool)(-out[2]);
-
-    if (ismax1) { /* all processes have ismax=1 */
-      ierr = MatGetSubMatrices_MPIAIJ_SingleIS(C,ismax,isrow,iscol,scall,submat);CHKERRQ(ierr);
-      PetscFunctionReturn(0);
-    }
 
   } else { /* MAT_REUSE_MATRIX */
     subc = (Mat_SeqAIJ*)((*submat)[0]->data);

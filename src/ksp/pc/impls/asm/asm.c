@@ -203,9 +203,9 @@ static PetscErrorCode PCSetUp_ASM(PC pc)
         char      **domain_names;
         IS        *inner_domain_is, *outer_domain_is;
         ierr = DMCreateDomainDecomposition(pc->dm, &num_domains, &domain_names, &inner_domain_is, &outer_domain_is, &domain_dm);CHKERRQ(ierr);
-        osm->overlap = -1; /* We do not want to increase the overlap of the IS.
-                              A future improvement of this code might allow one to use
-                              DM-defined subdomains and also increase the overlap,
+        osm->overlap = -1; /* We do not want to increase the overlap of the IS. 
+                              A future improvement of this code might allow one to use 
+                              DM-defined subdomains and also increase the overlap, 
                               but that is not currently supported */
         if (num_domains) {
           ierr = PCASMSetLocalSubdomains(pc, num_domains, outer_domain_is, inner_domain_is);CHKERRQ(ierr);
@@ -226,12 +226,19 @@ static PetscErrorCode PCSetUp_ASM(PC pc)
     }
     { /* determine the global and max number of subdomains */
       struct {PetscInt max,sum;} inwork,outwork;
+      PetscMPIInt size;
 
       inwork.max   = osm->n_local_true;
       inwork.sum   = osm->n_local_true;
       ierr         = MPIU_Allreduce(&inwork,&outwork,1,MPIU_2INT,MPIU_MAXSUM_OP,PetscObjectComm((PetscObject)pc));CHKERRQ(ierr);
       osm->n_local = outwork.max;
       osm->n       = outwork.sum;
+
+      ierr = MPI_Comm_size(PetscObjectComm((PetscObject)pc),&size);CHKERRQ(ierr);
+      if (outwork.max == 1 && outwork.sum == size) {
+        /* osm->n_local_true = 1 on all processes, set this option may enable use of optimized MatGetSubMatrices() implementation */
+        ierr = MatSetOption(pc->pmat,MAT_SUBMAT_SINGLEIS,PETSC_TRUE);CHKERRQ(ierr);
+      } 
     }
     if (!osm->is) { /* create the index sets */
       ierr = PCASMCreateSubdomains(pc->pmat,osm->n_local_true,&osm->is);CHKERRQ(ierr);

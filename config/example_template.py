@@ -3,17 +3,17 @@ header="""#!/usr/bin/env bash
 # This script was created by gmakegentest.py
 
 # PATH for DLLs on windows
-PATH=$PATH:@PETSC_LIB_DIR@
+PATH="$PATH:@PETSC_LIB_DIR@"
 mpiexec='@MPIEXEC@'
-exec=@EXEC@
+exec='@EXEC@'
 testname='@TESTNAME@'
-label=@LABEL@
-runfiles=@LOCALRUNFILES@
-wPETSC_DIR=@WPETSC_DIR@
-petsc_dir=@PETSC_DIR@
+label='@LABEL@'
+runfiles='@LOCALRUNFILES@'
+wPETSC_DIR='@WPETSC_DIR@'
+petsc_dir='@PETSC_DIR@'
 args='@ARGS@'
 
-. ${petsc_dir}/config/petsc_harness.sh
+. "${petsc_dir}/config/petsc_harness.sh"
 
 # The diff flags come from script arguments
 diff_exe="${petsc_dir}/bin/petscdiff ${diff_flags}"

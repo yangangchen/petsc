@@ -1545,7 +1545,7 @@ static PetscErrorCode DMPlexBuildFromCellList_Parallel_Private(DM dm, PetscInt n
 /*
   This takes as input the coordinates for each owned vertex
 */
-static PetscErrorCode DMPlexBuildCoordinates_Parallel_Private(DM dm, PetscInt spaceDim, PetscInt numCells, PetscSF sfVert, const double vertexCoords[])
+static PetscErrorCode DMPlexBuildCoordinates_Parallel_Private(DM dm, PetscInt spaceDim, PetscInt numCells, PetscSF sfVert, const PetscReal vertexCoords[])
 {
   PetscSection   coordSection;
   Vec            coordinates;
@@ -1636,7 +1636,7 @@ $        3
 
 .seealso: DMPlexCreateFromCellList(), DMPlexCreateFromDAG(), DMPlexCreate()
 @*/
-PetscErrorCode DMPlexCreateFromCellListParallel(MPI_Comm comm, PetscInt dim, PetscInt numCells, PetscInt numVertices, PetscInt numCorners, PetscBool interpolate, const int cells[], PetscInt spaceDim, const double vertexCoords[], PetscSF *vertexSF, DM *dm)
+PetscErrorCode DMPlexCreateFromCellListParallel(MPI_Comm comm, PetscInt dim, PetscInt numCells, PetscInt numVertices, PetscInt numCorners, PetscBool interpolate, const int cells[], PetscInt spaceDim, const PetscReal vertexCoords[], PetscSF *vertexSF, DM *dm)
 {
   PetscSF        sfVert;
   PetscErrorCode ierr;
@@ -1657,7 +1657,7 @@ PetscErrorCode DMPlexCreateFromCellListParallel(MPI_Comm comm, PetscInt dim, Pet
   }
   ierr = DMPlexBuildCoordinates_Parallel_Private(*dm, spaceDim, numCells, sfVert, vertexCoords);CHKERRQ(ierr);
   if (vertexSF) *vertexSF = sfVert;
-  else ierr = PetscSFDestroy(&sfVert);CHKERRQ(ierr);
+  else {ierr = PetscSFDestroy(&sfVert);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 

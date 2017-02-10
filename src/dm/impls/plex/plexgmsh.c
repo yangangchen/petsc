@@ -183,7 +183,6 @@ static PetscErrorCode DMPlexCreateGmsh_ReadElement(PetscViewer viewer, PetscInt 
 PetscErrorCode DMPlexCreateGmsh(MPI_Comm comm, PetscViewer viewer, PetscBool interpolate, DM *dm)
 {
   PetscViewerType vtype;
-  GmshElement     *gmsh_elem = NULL;
   GmshElement     *gmsh_elem;
   PetscSection    coordSection;
   Vec             coordinates;

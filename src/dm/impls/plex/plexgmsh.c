@@ -184,7 +184,6 @@ PetscErrorCode DMPlexCreateGmsh(MPI_Comm comm, PetscViewer viewer, PetscBool int
 {
   PetscViewerType vtype;
   GmshElement     *gmsh_elem = NULL;
-  GmshElement     *gmsh_elem;
   PetscSection    coordSection;
   Vec             coordinates;
   PetscScalar     *coords;

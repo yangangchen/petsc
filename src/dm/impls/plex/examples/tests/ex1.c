@@ -101,7 +101,7 @@ PetscErrorCode CreateMesh(MPI_Comm comm, AppCtx *user, DM *dm)
           sizes = triSizes_n8; points = triPoints_n8;
         } else if (dim == 2 && !cellSimplex && size == 2) {
           sizes = quadSizes; points = quadPoints;
-        } else if (dim == 2 && numProcs == 3) {
+        } else if (dim == 2 && size == 3) {
           PetscInt Nc;
 
           ierr = DMPlexGetHeightStratum(*dm, 0, NULL, &Nc);CHKERRQ(ierr);

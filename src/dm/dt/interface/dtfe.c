@@ -741,7 +741,7 @@ PetscErrorCode PetscSpaceEvaluate_Polynomial(PetscSpace sp, PetscInt npoints, co
   ierr = PetscMalloc2(dim,&ind,dim,&tup);CHKERRQ(ierr);
   if (B) {
     /* B (npoints x pdim x Nc) */
-    ierr = PetscMemzero(B, npoints*pdim*Nc * sizeof(PetscReal));CHKERRQ(ierr);
+    ierr = PetscMemzero(B, npoints*pdim*Nc*Nc * sizeof(PetscReal));CHKERRQ(ierr);
     if (poly->tensor) {
       i = 0;
       ierr = PetscMemzero(ind, dim * sizeof(PetscInt));CHKERRQ(ierr);
@@ -1907,11 +1907,11 @@ PetscErrorCode PetscDualSpaceApplyFVM(PetscDualSpace sp, PetscInt f, PetscReal t
   ierr = PetscQuadratureGetData(n, NULL, &qNc, &Nq, &points, &weights);CHKERRQ(ierr);
   if (qNc != Nc) SETERRQ2(PetscObjectComm((PetscObject) sp), PETSC_ERR_ARG_SIZ, "The quadrature components %D != function components %D", qNc, Nc);
   ierr = DMGetWorkArray(dm, Nc, PETSC_SCALAR, &val);CHKERRQ(ierr);
-  value[0] = 0.0;
+  for (c = 0; c < Nc; ++c) value[c] = 0.0;
   for (q = 0; q < Nq; ++q) {
     ierr = (*func)(dimEmbed, time, cgeom->centroid, Nc, val, ctx);CHKERRQ(ierr);
     for (c = 0; c < Nc; ++c) {
-      value[0] += val[c]*weights[q*Nc+c];
+      value[c] += val[c]*weights[q*Nc+c];
     }
   }
   ierr = DMRestoreWorkArray(dm, Nc, PETSC_SCALAR, &val);CHKERRQ(ierr);
@@ -1980,11 +1980,12 @@ static PetscErrorCode PetscDualSpaceGetSymmetries_Lagrange(PetscDualSpace sp, co
 {
 
   PetscDualSpace_Lag *lag = (PetscDualSpace_Lag *) sp->data;
-  PetscInt           dim, order, p;
+  PetscInt           dim, order, p, Nc;
   PetscErrorCode     ierr;
 
   PetscFunctionBegin;
   ierr = PetscDualSpaceGetOrder(sp,&order);CHKERRQ(ierr);
+  ierr = PetscDualSpaceGetNumComponents(sp,&Nc);CHKERRQ(ierr);
   ierr = DMGetDimension(sp->dm,&dim);CHKERRQ(ierr);
   if (!dim || !lag->continuous || order < 3) PetscFunctionReturn(0);
   if (dim > 3) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_SUP,"Lagrange symmetries not implemented for dim = %D > 3",dim);
@@ -2017,19 +2018,28 @@ static PetscErrorCode PetscDualSpaceGetSymmetries_Lagrange(PetscDualSpace sp, co
         PetscInt dofPerEdge = order - 1;
 
         if (dofPerEdge > 1) {
-          PetscInt i, *reverse;
+          PetscInt i, j, *reverse;
 
-          ierr = PetscMalloc1(dofPerEdge,&reverse);CHKERRQ(ierr);
-          for (i = 0; i < dofPerEdge; i++) reverse[i] = (dofPerEdge - 1 - i);
+          ierr = PetscMalloc1(dofPerEdge*Nc,&reverse);CHKERRQ(ierr);
+          for (i = 0; i < dofPerEdge; i++) {
+            for (j = 0; j < Nc; j++) {
+              reverse[i*Nc + j] = Nc * (dofPerEdge - 1 - i) + j;
+            }
+          }
           symmetries[0][-2] = reverse;
 
           /* yes, this is redundant, but it makes it easier to cleanup if I don't have to worry about what not to free */
-          ierr = PetscMalloc1(dofPerEdge,&reverse);CHKERRQ(ierr);
-          for (i = 0; i < dofPerEdge; i++) reverse[i] = (dofPerEdge - 1 - i);
+          ierr = PetscMalloc1(dofPerEdge*Nc,&reverse);CHKERRQ(ierr);
+          for (i = 0; i < dofPerEdge; i++) {
+            for (j = 0; j < Nc; j++) {
+              reverse[i*Nc + j] = Nc * (dofPerEdge - 1 - i) + j;
+            }
+          }
           symmetries[0][1] = reverse;
         }
       } else {
         PetscInt dofPerEdge = lag->simplexCell ? (order - 2) : (order - 1), s;
+        PetscInt dofPerFace;
 
         if (dofPerEdge > 1) {
           for (s = -numFaces; s < numFaces; s++) {
@@ -2037,57 +2047,65 @@ static PetscErrorCode PetscDualSpaceGetSymmetries_Lagrange(PetscDualSpace sp, co
 
             if (!s) continue;
             if (lag->simplexCell) {
-              ierr = PetscMalloc1((dofPerEdge * (dofPerEdge + 1))/2,&sym);CHKERRQ(ierr);
+              dofPerFace = (dofPerEdge * (dofPerEdge + 1))/2;
+              ierr = PetscMalloc1(Nc*dofPerFace,&sym);CHKERRQ(ierr);
               for (j = 0, l = 0; j < dofPerEdge; j++) {
                 for (k = 0; k < dofPerEdge - j; k++, l++) {
                   i = dofPerEdge - 1 - j - k;
                   switch (s) {
                   case -3:
-                    sym[l] = BaryIndex(dofPerEdge,i,k,j);
+                    sym[Nc*l] = BaryIndex(dofPerEdge,i,k,j);
                     break;
                   case -2:
-                    sym[l] = BaryIndex(dofPerEdge,j,i,k);
+                    sym[Nc*l] = BaryIndex(dofPerEdge,j,i,k);
                     break;
                   case -1:
-                    sym[l] = BaryIndex(dofPerEdge,k,j,i);
+                    sym[Nc*l] = BaryIndex(dofPerEdge,k,j,i);
                     break;
                   case 1:
-                    sym[l] = BaryIndex(dofPerEdge,k,i,j);
+                    sym[Nc*l] = BaryIndex(dofPerEdge,k,i,j);
                     break;
                   case 2:
-                    sym[l] = BaryIndex(dofPerEdge,j,k,i);
+                    sym[Nc*l] = BaryIndex(dofPerEdge,j,k,i);
                     break;
                   }
                 }
               }
             } else {
-              ierr = PetscMalloc1(dofPerEdge * dofPerEdge,&sym);CHKERRQ(ierr);
+              dofPerFace = dofPerEdge * dofPerEdge;
+              ierr = PetscMalloc1(Nc*dofPerFace,&sym);CHKERRQ(ierr);
               for (j = 0, l = 0; j < dofPerEdge; j++) {
                 for (k = 0; k < dofPerEdge; k++, l++) {
                   switch (s) {
                   case -4:
-                    sym[l] = CartIndex(dofPerEdge,k,j);
+                    sym[Nc*l] = CartIndex(dofPerEdge,k,j);
                     break;
                   case -3:
-                    sym[l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - j),k);
+                    sym[Nc*l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - j),k);
                     break;
                   case -2:
-                    sym[l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - k),(dofPerEdge - 1 - j));
+                    sym[Nc*l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - k),(dofPerEdge - 1 - j));
                     break;
                   case -1:
-                    sym[l] = CartIndex(dofPerEdge,j,(dofPerEdge - 1 - k));
+                    sym[Nc*l] = CartIndex(dofPerEdge,j,(dofPerEdge - 1 - k));
                     break;
                   case 1:
-                    sym[l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - k),j);
+                    sym[Nc*l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - k),j);
                     break;
                   case 2:
-                    sym[l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - j),(dofPerEdge - 1 - k));
+                    sym[Nc*l] = CartIndex(dofPerEdge,(dofPerEdge - 1 - j),(dofPerEdge - 1 - k));
                     break;
                   case 3:
-                    sym[l] = CartIndex(dofPerEdge,k,(dofPerEdge - 1 - j));
+                    sym[Nc*l] = CartIndex(dofPerEdge,k,(dofPerEdge - 1 - j));
                     break;
                   }
                 }
+              }
+            }
+            for (i = 0; i < dofPerFace; i++) {
+              sym[Nc*i] *= Nc;
+              for (j = 1; j < Nc; j++) {
+                sym[Nc*i+j] = sym[Nc*i] + j;
               }
             }
             symmetries[0][s] = sym;
@@ -2721,12 +2739,14 @@ PetscErrorCode PetscDualSpaceDestroy_Simple(PetscDualSpace sp)
 
 PetscErrorCode PetscDualSpaceDuplicate_Simple(PetscDualSpace sp, PetscDualSpace *spNew)
 {
-  PetscInt       dim, d;
+  PetscInt       dim, d, Nc;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   ierr = PetscDualSpaceCreate(PetscObjectComm((PetscObject) sp), spNew);CHKERRQ(ierr);
   ierr = PetscDualSpaceSetType(*spNew, PETSCDUALSPACESIMPLE);CHKERRQ(ierr);
+  ierr = PetscDualSpaceGetNumComponents(sp, &Nc);CHKERRQ(ierr);
+  ierr = PetscDualSpaceSetNumComponents(sp, Nc);CHKERRQ(ierr);
   ierr = PetscDualSpaceGetDimension(sp, &dim);CHKERRQ(ierr);
   ierr = PetscDualSpaceSimpleSetDimension(*spNew, dim);CHKERRQ(ierr);
   for (d = 0; d < dim; ++d) {
@@ -2784,8 +2804,7 @@ PetscErrorCode PetscDualSpaceGetNumDof_Simple(PetscDualSpace sp, const PetscInt 
 
 PetscErrorCode PetscDualSpaceSimpleSetFunctional_Simple(PetscDualSpace sp, PetscInt f, PetscQuadrature q)
 {
-  PetscDualSpace_Simple *s   = (PetscDualSpace_Simple *) sp->data;
-  PetscReal              vol = 0.0;
+  PetscDualSpace_Simple *s = (PetscDualSpace_Simple *) sp->data;
   PetscReal             *weights;
   PetscInt               Nc, c, Nq, p;
   PetscErrorCode         ierr;
@@ -2796,8 +2815,10 @@ PetscErrorCode PetscDualSpaceSimpleSetFunctional_Simple(PetscDualSpace sp, Petsc
   /* Reweight so that it has unit volume: Do we want to do this for Nc > 1? */
   ierr = PetscQuadratureGetData(sp->functional[f], NULL, &Nc, &Nq, NULL, (const PetscReal **) &weights);CHKERRQ(ierr);
   for (c = 0; c < Nc; ++c) {
+    PetscReal vol = 0.0;
+
     for (p = 0; p < Nq; ++p) vol += weights[p*Nc+c];
-    for (p = 0; p < Nq; ++p) weights[p*Nc+c] /= vol;
+    for (p = 0; p < Nq; ++p) weights[p*Nc+c] /= (vol == 0.0 ? 1.0 : vol);
   }
   PetscFunctionReturn(0);
 }
@@ -3482,7 +3503,7 @@ PetscErrorCode PetscFESetQuadrature(PetscFE fem, PetscQuadrature q)
   PetscValidHeaderSpecific(fem, PETSCFE_CLASSID, 1);
   ierr = PetscFEGetNumComponents(fem, &Nc);CHKERRQ(ierr);
   ierr = PetscQuadratureGetNumComponents(q, &qNc);CHKERRQ(ierr);
-  if (Nc != qNc) SETERRQ2(PetscObjectComm((PetscObject) fem), PETSC_ERR_ARG_SIZ, "FE components %D != Quadrature components %D", Nc, qNc);
+  if ((qNc != 1) && (Nc != qNc)) SETERRQ2(PetscObjectComm((PetscObject) fem), PETSC_ERR_ARG_SIZ, "FE components %D != Quadrature components %D and non-scalar quadrature", Nc, qNc);
   ierr = PetscFERestoreTabulation(fem, 0, NULL, &fem->B, &fem->D, NULL /*&(*fem)->H*/);CHKERRQ(ierr);
   ierr = PetscQuadratureDestroy(&fem->quadrature);CHKERRQ(ierr);
   fem->quadrature = q;
@@ -4298,11 +4319,11 @@ PetscErrorCode PetscFEIntegrateJacobian_Basic(PetscFE fem, PetscDS prob, PetscFE
       for (f = 0; f < NbI; ++f) {
         for (fc = 0; fc < NcI; ++fc) {
           const PetscInt fidx = f*NcI+fc; /* Test function basis index */
-          const PetscInt i    = offsetI+fidx; /* Element matrix row */
+          const PetscInt i    = offsetI+f; /* Element matrix row */
           for (g = 0; g < NbJ; ++g) {
             for (gc = 0; gc < NcJ; ++gc) {
               const PetscInt gidx = g*NcJ+gc; /* Trial function basis index */
-              const PetscInt j    = offsetJ+gidx; /* Element matrix column */
+              const PetscInt j    = offsetJ+g; /* Element matrix column */
               const PetscInt fOff = eOffset+i*totDim+j;
               PetscInt       d, d2;
 
@@ -4480,11 +4501,11 @@ PetscErrorCode PetscFEIntegrateBdJacobian_Basic(PetscFE fem, PetscDS prob, Petsc
       for (f = 0; f < NbI; ++f) {
         for (fc = 0; fc < NcI; ++fc) {
           const PetscInt fidx = f*NcI+fc; /* Test function basis index */
-          const PetscInt i    = offsetI+fidx; /* Element matrix row */
+          const PetscInt i    = offsetI+f; /* Element matrix row */
           for (g = 0; g < NbJ; ++g) {
             for (gc = 0; gc < NcJ; ++gc) {
               const PetscInt gidx = g*NcJ+gc; /* Trial function basis index */
-              const PetscInt j    = offsetJ+gidx; /* Element matrix column */
+              const PetscInt j    = offsetJ+g; /* Element matrix column */
               const PetscInt fOff = eOffset+i*totDim+j;
               PetscInt       d, d2;
 
@@ -4863,11 +4884,11 @@ PetscErrorCode PetscFEIntegrateJacobian_Nonaffine(PetscFE fem, PetscDS prob, Pet
       for (f = 0; f < NbI; ++f) {
         for (fc = 0; fc < NcI; ++fc) {
           const PetscInt fidx = f*NcI+fc; /* Test function basis index */
-          const PetscInt i    = offsetI+fidx; /* Element matrix row */
+          const PetscInt i    = offsetI+f; /* Element matrix row */
           for (g = 0; g < NbJ; ++g) {
             for (gc = 0; gc < NcJ; ++gc) {
               const PetscInt gidx = g*NcJ+gc; /* Trial function basis index */
-              const PetscInt j    = offsetJ+gidx; /* Element matrix column */
+              const PetscInt j    = offsetJ+g; /* Element matrix column */
               const PetscInt fOff = eOffset+i*totDim+j;
               PetscInt       d, d2;
 
@@ -4965,6 +4986,7 @@ PetscErrorCode PetscFEDestroy_OpenCL(PetscFE fem)
 #define STRING_ERROR_CHECK(MSG) do {CHKERRQ(ierr); string_tail += count; if (string_tail == end_of_buffer) SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_SUP, MSG);} while(0)
 enum {LAPLACIAN = 0, ELASTICITY = 1};
 
+/* NOTE: This is now broken for vector problems. Must redo loops to respect vector basis elements */
 /* dim     Number of spatial dimensions:          2                   */
 /* N_b     Number of basis functions:             generated           */
 /* N_{bt}  Number of total basis functions:       N_b * N_{comp}      */
@@ -6506,11 +6528,12 @@ PetscErrorCode PetscFECreateDefault(DM dm, PetscInt dim, PetscInt Nc, PetscBool 
   ierr = PetscOptionsEnd();CHKERRQ(ierr);
   quadPointsPerEdge = PetscMax(qorder + 1,1);
   if (isSimplex) {
-    ierr = PetscDTGaussJacobiQuadrature(dim,   Nc, quadPointsPerEdge, -1.0, 1.0, &q);CHKERRQ(ierr);
-    ierr = PetscDTGaussJacobiQuadrature(dim-1, Nc, quadPointsPerEdge, -1.0, 1.0, &fq);CHKERRQ(ierr);
-  } else {
-    ierr = PetscDTGaussTensorQuadrature(dim,   Nc, quadPointsPerEdge, -1.0, 1.0, &q);CHKERRQ(ierr);
-    ierr = PetscDTGaussTensorQuadrature(dim-1, Nc, quadPointsPerEdge, -1.0, 1.0, &fq);CHKERRQ(ierr);
+    ierr = PetscDTGaussJacobiQuadrature(dim,   1, quadPointsPerEdge, -1.0, 1.0, &q);CHKERRQ(ierr);
+    ierr = PetscDTGaussJacobiQuadrature(dim-1, 1, quadPointsPerEdge, -1.0, 1.0, &fq);CHKERRQ(ierr);
+  }
+  else {
+    ierr = PetscDTGaussTensorQuadrature(dim,   1, quadPointsPerEdge, -1.0, 1.0, &q);CHKERRQ(ierr);
+    ierr = PetscDTGaussTensorQuadrature(dim-1, 1, quadPointsPerEdge, -1.0, 1.0, &fq);CHKERRQ(ierr);
   }
   ierr = PetscFESetQuadrature(*fem, q);CHKERRQ(ierr);
   ierr = PetscFESetFaceQuadrature(*fem, fq);CHKERRQ(ierr);

@@ -30,7 +30,6 @@ static PetscErrorCode DMProjectPoint_Func_Private(DM dm, PetscReal time, PetscFE
       }
     }
   }
-  if (v != totDim) SETERRQ2(PETSC_COMM_SELF, PETSC_ERR_ARG_SIZ, "The projection size %d != total DS dimension %d", v, totDim);
   PetscFunctionReturn(0);
 }
 
@@ -201,7 +200,7 @@ static PetscErrorCode DMProjectLocal_Generic_Plex(DM dm, PetscReal time, Vec loc
     PetscReal *points;
     PetscInt   numPoints, spDim, d;
 
-    if (maxHeight) SETERRQ(PetscObjectComm((PetscObject) dm), PETSC_ERR_SUP, "Field proejction not supported for face interpolation");
+    if (maxHeight) SETERRQ(PetscObjectComm((PetscObject) dm), PETSC_ERR_SUP, "Field projection not supported for face interpolation");
     numPoints = 0;
     for (f = 0; f < Nf; ++f) {
       ierr = PetscDualSpaceGetDimension(cellsp[f], &spDim);CHKERRQ(ierr);

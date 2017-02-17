@@ -931,7 +931,6 @@ PetscErrorCode DMPlexCreateHexBoxMesh(MPI_Comm comm, PetscInt dim, const PetscIn
     edges[0] = cells[0];
     edges[1] = cells[1];
     edges[2] = 0;
-
     ierr = DMPlexCreateCubeMesh_Internal(*dm, lower, upper, edges, periodicX, periodicY, DM_BOUNDARY_NONE);CHKERRQ(ierr);
     if (periodicX == DM_BOUNDARY_PERIODIC || periodicX == DM_BOUNDARY_TWIST ||
         periodicY == DM_BOUNDARY_PERIODIC || periodicY == DM_BOUNDARY_TWIST) {

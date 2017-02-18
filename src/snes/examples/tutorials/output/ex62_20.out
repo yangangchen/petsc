@@ -9,11 +9,11 @@
     7 KSP Residual norm 0.0046995 
     8 KSP Residual norm 0.00183816 
     9 KSP Residual norm 6.80095e-06 
-   10 KSP Residual norm 4.49923e-06 
-   11 KSP Residual norm 3.13304e-09 
-   12 KSP Residual norm 8.047e-11 
+   10 KSP Residual norm 4.66929e-06 
+   11 KSP Residual norm 4.10883e-09 
+   12 KSP Residual norm 5.522e-11 
   Linear solve converged due to CONVERGED_RTOL iterations 12
-  1 SNES Function norm 3.121e-10 
+  1 SNES Function norm 2.152e-10 
 Nonlinear solve converged due to CONVERGED_FNORM_RELATIVE iterations 1
 SNES Object: 3 MPI processes
   type: newtonls

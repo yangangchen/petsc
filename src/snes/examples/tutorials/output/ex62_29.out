@@ -25,12 +25,12 @@
    23 KSP Residual norm 0.00228274 
    24 KSP Residual norm 0.000332991 
    25 KSP Residual norm 0.000118315 
-   26 KSP Residual norm 2.77172e-05 
-   27 KSP Residual norm 2.73799e-05 
-   28 KSP Residual norm 2.66299e-05 
-   29 KSP Residual norm 2.036e-10 
+   26 KSP Residual norm 2.77166e-05 
+   27 KSP Residual norm 2.73849e-05 
+   28 KSP Residual norm 2.66343e-05 
+   29 KSP Residual norm 2.859e-10 
   Linear solve converged due to CONVERGED_RTOL iterations 29
-  1 SNES Function norm 9.951e-10 
+  1 SNES Function norm 1.33719e-09 
 Nonlinear solve converged due to CONVERGED_FNORM_RELATIVE iterations 1
 SNES Object: 5 MPI processes
   type: newtonls
@@ -65,7 +65,7 @@ SNES Object: 5 MPI processes
         has attached null space
         using I-node (on process 0) routines: found 1 nodes, limit used is 5
 Number of SNES iterations = 1
-L_2 Error: 1.59e-11 [1.46e-11, 6.28e-12]
+L_2 Error: 1.84e-10 [2.29e-11, 1.83e-10]
 Solution
 Vec Object: 5 MPI processes
   type: mpi

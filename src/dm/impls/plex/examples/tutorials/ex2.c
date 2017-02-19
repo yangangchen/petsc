@@ -39,7 +39,7 @@ static PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   ierr = PetscOptionsInt("-dim", "The dimension of problem used for non-file mesh", "ex2.c", options->dim, &options->dim, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsEnd();
   PetscFunctionReturn(0);
-};
+}
 
 static PetscErrorCode CreateMesh(MPI_Comm comm, AppCtx *user, DM *dm)
 {
@@ -137,9 +137,11 @@ int main(int argc, char **argv)
   # Gmsh meshes 2-4
   test:
     suffix: 2
+    requires: !quad
     args: -filename ${wPETSC_DIR}/share/petsc/datafiles/meshes/doublet-tet.msh -interpolate 1
   test:
     suffix: 3
+    requires: !quad
     args: -filename ${wPETSC_DIR}/share/petsc/datafiles/meshes/square.msh -interpolate 1
   test:
     suffix: 4

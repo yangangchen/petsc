@@ -164,7 +164,7 @@ PetscErrorCode  PetscMallocSet(PetscErrorCode (*imalloc)(size_t,int,const char[]
                                               PetscErrorCode (*ifree)(void*,int,const char[],const char[]))
 {
   PetscFunctionBegin;
-  if (petscsetmallocvisited && (imalloc != PetscTrMalloc || ifree != PetscTrFree) && (imalloc != PetscHBWMalloc || ifree != PetscHBWFree)) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"cannot call multiple times");
+  if (petscsetmallocvisited && (imalloc != PetscTrMalloc || ifree != PetscTrFree)) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"cannot call multiple times");
   PetscTrMalloc         = imalloc;
   PetscTrFree           = ifree;
   petscsetmallocvisited = PETSC_TRUE;
@@ -209,3 +209,27 @@ PetscErrorCode PetscMemoryTrace(const char label[])
   oldmal = mal;
   PetscFunctionReturn(0);
 }
+
+#if defined(PETSC_HAVE_MEMKIND)
+PetscErrorCode (*PetscTrMallocOld)(size_t,int,const char[],const char[],void**) = PetscMallocAlign;
+PetscErrorCode (*PetscTrFreeOld)(void*,int,const char[],const char[])           = PetscFreeAlign;
+PetscErrorCode PetscMallocSetUseAlign(void)
+{
+  PetscFunctionBegin;
+  /* Save the previous choice */
+  PetscTrMallocOld = PetscTrMalloc;
+  PetscTrFreeOld   = PetscTrFree;
+  PetscTrMalloc    = PetscMallocAlign;
+  PetscTrFree      = PetscFreeAlign;
+  PetscFunctionReturn(0);
+}
+
+PetscErrorCode PetscMallocReset(void)
+{
+  PetscFunctionBegin;
+  /* Reset to the previous choice */
+  PetscTrMalloc = PetscTrMallocOld;
+  PetscTrFree   = PetscTrFreeOld;
+  PetscFunctionReturn(0);
+}
+#endif

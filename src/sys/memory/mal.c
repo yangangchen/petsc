@@ -210,10 +210,24 @@ PetscErrorCode PetscMemoryTrace(const char label[])
   PetscFunctionReturn(0);
 }
 
-#if defined(PETSC_HAVE_MEMKIND)
 static PetscErrorCode (*PetscTrMallocOld)(size_t,int,const char[],const char[],void**) = PetscMallocAlign;
 static PetscErrorCode (*PetscTrFreeOld)(void*,int,const char[],const char[])           = PetscFreeAlign;
 
+/*@C
+   PetscMallocSetUseAlign - Switch the current malloc and free routines to the
+        PetscMallocAlign and PetscFreeAlign (PETSc default).
+
+   Not Collective
+
+   Level: developer
+
+   Notes:
+     This provides a way to use a different pair of malloc and free routines
+     temporarily. One can switch back to the previous choice by calling
+     PetscMallocReset().
+ 
+.seealso: PetscMallocReset()
+@*/
 PetscErrorCode PetscMallocSetUseAlign(void)
 {
   PetscFunctionBegin;
@@ -225,6 +239,16 @@ PetscErrorCode PetscMallocSetUseAlign(void)
   PetscFunctionReturn(0);
 }
 
+/*@C
+   PetscMallocReset - Resets the routines used to do mallocs and frees to the
+        previous choice.
+
+   Not Collective
+
+   Level: developer
+
+.seealso: PetscMallocSetUseAlign()
+@*/
 PetscErrorCode PetscMallocReset(void)
 {
   PetscFunctionBegin;
@@ -233,4 +257,3 @@ PetscErrorCode PetscMallocReset(void)
   PetscTrFree   = PetscTrFreeOld;
   PetscFunctionReturn(0);
 }
-#endif

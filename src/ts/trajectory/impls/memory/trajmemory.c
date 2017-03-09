@@ -3,10 +3,6 @@
 #if defined(PETSC_HAVE_REVOLVE)
 #include <revolve_c.h>
 #endif
-#if defined(PETSC_HAVE_MEMKIND)
-extern PetscErrorCode PetscMallocSetUseAlign(void);
-extern PetscErrorCode PetscMallocReset(void);
-#endif
 
 PetscLogEvent TSTrajectory_DiskWrite, TSTrajectory_DiskRead;
 
@@ -41,6 +37,7 @@ typedef struct _Stack {
   StackElement  *container;
   PetscInt      numY;
   PetscBool     solution_only;
+  PetscBool     use_dram;
 } Stack;
 
 typedef struct _DiskStack {
@@ -111,9 +108,9 @@ static PetscErrorCode ElementCreate(TS ts,Stack *stack,StackElement *e)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-#if defined(PETSC_HAVE_MEMKIND)
-  ierr = PetscMallocSetUseAlign();CHKERRQ(ierr);
-#endif
+  if (stack->use_dram) {
+    ierr = PetscMallocSetUseAlign();CHKERRQ(ierr);
+  }
   ierr = PetscCalloc1(1,e);CHKERRQ(ierr);
   ierr = TSGetSolution(ts,&X);CHKERRQ(ierr);
   ierr = VecDuplicate(X,&(*e)->X);CHKERRQ(ierr);
@@ -121,9 +118,9 @@ static PetscErrorCode ElementCreate(TS ts,Stack *stack,StackElement *e)
     ierr = TSGetStages(ts,&stack->numY,&Y);CHKERRQ(ierr);
     ierr = VecDuplicateVecs(Y[0],stack->numY,&(*e)->Y);CHKERRQ(ierr);
   }
-#if defined(PETSC_HAVE_MEMKIND)
-  ierr = PetscMallocReset();CHKERRQ(ierr);
-#endif
+  if (stack->use_dram) {
+    ierr = PetscMallocReset();CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 
@@ -135,9 +132,9 @@ static PetscErrorCode ElementSet(TS ts,Stack *stack,StackElement *e,PetscInt ste
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-#if defined(PETSC_HAVE_MEMKIND)
-  ierr = PetscMallocSetUseAlign();CHKERRQ(ierr);
-#endif
+  if (stack->use_dram) {
+    ierr = PetscMallocSetUseAlign();CHKERRQ(ierr);
+  }
   ierr = VecCopy(X,(*e)->X);CHKERRQ(ierr);
   if (stack->numY > 0 && !stack->solution_only) {
     ierr = TSGetStages(ts,&stack->numY,&Y);CHKERRQ(ierr);
@@ -154,9 +151,9 @@ static PetscErrorCode ElementSet(TS ts,Stack *stack,StackElement *e,PetscInt ste
     ierr = TSGetPrevTime(ts,&timeprev);CHKERRQ(ierr);
     (*e)->timeprev = timeprev;
   }
-#if defined(PETSC_HAVE_MEMKIND)
-  ierr = PetscMallocReset();CHKERRQ(ierr);
-#endif
+  if (stack->use_dram) {
+    ierr = PetscMallocReset();CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 
@@ -165,17 +162,17 @@ static PetscErrorCode ElementDestroy(Stack *stack,StackElement e)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-#if defined(PETSC_HAVE_MEMKIND)
-  ierr = PetscMallocSetUseAlign();CHKERRQ(ierr);
-#endif
+  if (stack->use_dram) {
+    ierr = PetscMallocSetUseAlign();CHKERRQ(ierr);
+  }
   ierr = VecDestroy(&e->X);CHKERRQ(ierr);
   if (stack->numY > 0 && !stack->solution_only) {
     ierr = VecDestroyVecs(stack->numY,&e->Y);CHKERRQ(ierr);
   }
   ierr = PetscFree(e);CHKERRQ(ierr);
-#if defined(PETSC_HAVE_MEMKIND)
-  ierr = PetscMallocReset();CHKERRQ(ierr);
-#endif
+  if (stack->use_dram) {
+    ierr = PetscMallocReset();CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 
@@ -1642,6 +1639,15 @@ PETSC_UNUSED static PetscErrorCode TSTrajectorySetSolutionOnly(TSTrajectory tj,P
   PetscFunctionReturn(0);
 }
 
+PETSC_UNUSED static PetscErrorCode TSTrajectorySetUseDRAM(TSTrajectory tj,PetscBool use_dram)
+{
+  TJScheduler *tjsch = (TJScheduler*)tj->data;
+
+  PetscFunctionBegin;
+  tjsch->stack.use_dram = use_dram;
+  PetscFunctionReturn(0);
+}
+
 static PetscErrorCode TSTrajectorySetFromOptions_Memory(PetscOptionItems *PetscOptionsObject,TSTrajectory tj)
 {
   TJScheduler    *tjsch = (TJScheduler*)tj->data;
@@ -1658,6 +1664,7 @@ static PetscErrorCode TSTrajectorySetFromOptions_Memory(PetscOptionItems *PetscO
 #endif
     ierr = PetscOptionsBool("-ts_trajectory_save_stack","Save all stack to disk","TSTrajectorySetSaveStack",tjsch->save_stack,&tjsch->save_stack,NULL);CHKERRQ(ierr);
     ierr = PetscOptionsBool("-ts_trajectory_solution_only","Checkpoint solution only","TSTrajectorySetSolutionOnly",tjsch->stack.solution_only,&tjsch->stack.solution_only,NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsBool("-ts_trajectory_use_dram","Use DRAM for checkpointing","TSTrajectorySetUseDRAM",tjsch->stack.use_dram,&tjsch->stack.use_dram,NULL);CHKERRQ(ierr);
   }
   ierr = PetscOptionsTail();CHKERRQ(ierr);
   PetscFunctionReturn(0);

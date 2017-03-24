@@ -9,7 +9,6 @@
 */
 extern PetscErrorCode PetscMallocAlign(size_t,int,const char[],const char[],void**);
 extern PetscErrorCode PetscFreeAlign(void*,int,const char[],const char[]);
-extern PetscErrorCode PetscReallocAlign(size_t,int,const char[],const char[],void**);
 
 /*
    PetscHBWMalloc - HBW malloc.
@@ -43,29 +42,12 @@ static PetscErrorCode PetscHBWMalloc(size_t a,int lineno,const char function[],c
 #endif
 }
 
-static PetscErrorCode PetscHBWFree(void *aa,int lineno,const char function[],const char filename[])
+static PetscErrorCode PetscHBWFree(void *aa,int line,const char function[],const char file[])
 {
 #if !defined(PETSC_HAVE_MEMKIND)
-  return PetscFreeAlign(aa,lineno,function,filename);
+  return PetscFreeAlign(aa,line,function,file);
 #else
   hbw_free(aa);
-  return 0;
-#endif
-}
-
-static PetscErrorCode PetscHBWRealloc(size_t a,int lineno,const char function[],const char filename[],void **result)
-{
-#if !defined(PETSC_HAVE_MEMKIND)
-  return PetscReallocAlign(a,lineno,function,filename,result);
-#else
-  if (!a) {
-    int ierr = PetscFreeAlign(*result,lineno,function,filename);
-    if (ierr) return ierr;
-    *result = NULL;
-    return 0;
-  }
-  *result = hbw_realloc(*result,a);
-  if (!*result) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_MEM,"Memory requested %.0f",(PetscLogDouble)a);
   return 0;
 #endif
 }
@@ -76,6 +58,6 @@ PetscErrorCode PetscSetUseHBWMalloc_Private(void)
 
   PetscFunctionBegin;
   ierr = PetscMallocSet(PetscHBWMalloc,PetscHBWFree);CHKERRQ(ierr);
-  PetscTrRealloc = PetscHBWRealloc;
+  PetscTrRealloc = NULL;
   PetscFunctionReturn(0);
 }

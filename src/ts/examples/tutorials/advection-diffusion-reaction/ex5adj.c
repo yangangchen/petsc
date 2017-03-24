@@ -130,6 +130,7 @@ int main(int argc,char **argv)
      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
     ierr = VecDuplicate(x,&lambda[0]);CHKERRQ(ierr);
     /*   Reset initial conditions for the adjoint integration */
+    ierr = VecGetArray(lambda[0],&x_ptr);CHKERRQ(ierr);
     ierr = InitializeLambda(da,lambda[0],0.5,0.5);CHKERRQ(ierr);
 
     ierr = TSSetCostGradients(ts,1,lambda,NULL);CHKERRQ(ierr);
@@ -145,7 +146,8 @@ int main(int argc,char **argv)
   ierr = VecDestroy(&x);CHKERRQ(ierr);
   ierr = TSDestroy(&ts);CHKERRQ(ierr);
   ierr = DMDestroy(&da);CHKERRQ(ierr);
-  ierr = PetscFinalize();
+  ierr = PetscFinalize(); if(ierr) return ierr;
+  ierr = PetscMallocClear();
   return ierr;
 }
 

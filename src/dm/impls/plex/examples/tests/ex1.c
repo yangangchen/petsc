@@ -17,6 +17,7 @@ typedef struct {
   PetscBool     cellSimplex;                  /* Use simplices or hexes */
   DomainShape   domainShape;                  /* Shep of the region to be meshed */
   DMBoundaryType periodicity[3];              /* The domain periodicity */
+  PetscBool     simplex2tensor;               /* Refine simplicials in hexes */
   char          filename[PETSC_MAX_PATH_LEN]; /* Import mesh from file */
   PetscBool     testPartition;                /* Use a fixed partitioning for testing */
   PetscInt      overlap;                      /* The cell overlap to use during partitioning */
@@ -43,6 +44,7 @@ PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   options->testPartition     = PETSC_FALSE;
   options->overlap           = PETSC_FALSE;
   options->testShape         = PETSC_FALSE;
+  options->simplex2tensor    = PETSC_FALSE;
 
   ierr = PetscOptionsBegin(comm, "", "Meshing Problem Options", "DMPLEX");CHKERRQ(ierr);
   ierr = PetscOptionsInt("-debug", "The debugging level", "ex1.c", options->debug, &options->debug, NULL);CHKERRQ(ierr);
@@ -62,6 +64,8 @@ PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   bd = options->periodicity[2];
   ierr = PetscOptionsEList("-z_periodicity", "The z-boundary periodicity", "ex1.c", DMBoundaryTypes, 5, DMBoundaryTypes[options->periodicity[2]], &bd, NULL);CHKERRQ(ierr);
   options->periodicity[2] = (DMBoundaryType) bd;
+  ierr = PetscOptionsBool("-simplex2tensor", "Refine simplicial cells in tensor product cells", "ex1.c", options->simplex2tensor, &options->simplex2tensor, NULL);CHKERRQ(ierr);
+  if (options->simplex2tensor) options->interpolate = PETSC_TRUE;
   ierr = PetscOptionsString("-filename", "The mesh file", "ex1.c", options->filename, options->filename, PETSC_MAX_PATH_LEN, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsBool("-test_partition", "Use a fixed partition for testing", "ex1.c", options->testPartition, &options->testPartition, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsInt("-overlap", "The cell overlap for partitioning", "ex1.c", options->overlap, &options->overlap, NULL);CHKERRQ(ierr);
@@ -82,6 +86,7 @@ PetscErrorCode CreateMesh(MPI_Comm comm, AppCtx *user, DM *dm)
   PetscBool      interpolate          = user->interpolate;
   PetscReal      refinementLimit      = user->refinementLimit;
   PetscBool      cellSimplex          = user->cellSimplex;
+  PetscBool      simplex2tensor       = user->simplex2tensor;
   const char    *filename             = user->filename;
   PetscInt       triSizes_n2[2]       = {4, 4};
   PetscInt       triPoints_n2[8]      = {3, 5, 6, 7, 0, 1, 2, 4};
@@ -195,6 +200,15 @@ PetscErrorCode CreateMesh(MPI_Comm comm, AppCtx *user, DM *dm)
       *dm = overlapMesh;
     }
     ierr = PetscLogStagePop();CHKERRQ(ierr);
+  }
+  if (simplex2tensor) {
+    DM rdm = NULL;
+    ierr = DMPlexSetRefinementUniform(*dm, PETSC_TRUE);CHKERRQ(ierr);
+    ierr = DMPlexRefineSimplexToTensor(*dm, &rdm);CHKERRQ(ierr);
+    if (rdm) {
+      ierr = DMDestroy(dm);CHKERRQ(ierr);
+      *dm  = rdm;
+    }
   }
   ierr = PetscObjectSetName((PetscObject) *dm, "Simplicial Mesh");CHKERRQ(ierr);
   ierr = DMViewFromOptions(*dm, NULL, "-dm_view");CHKERRQ(ierr);

@@ -85,7 +85,16 @@ ex22: ex22.o  chkopts
 
 
 #--------------------------------------------------------------------------
-
+runex1_s2t2:
+	-@${MPIEXEC} -n 1 ./ex1 -dim 2 -simplex2tensor -refinement_limit 0.0625 -dm_view ascii::ascii_info_detail > ex1_s2t2.tmp 2>&1;\
+	   if (${DIFF} output/ex1_s2t2.out ex1_s2t2.tmp) then true ;  \
+	   else printf "${PWD}\nPossible problem with runex1_s2t2, diffs above\n=========================================\n"; fi ;\
+	   ${RM} -f ex1_s2t2.tmp
+runex1_s2t3:
+	-@${MPIEXEC} -n 1 ./ex1 -dim 3 -simplex2tensor -refinement_limit 0.0625 -dm_view ascii::ascii_info_detail > ex1_s2t3.tmp 2>&1;\
+	   if (${DIFF} output/ex1_s2t3.out ex1_s2t3.tmp) then true ;  \
+	   else printf "${PWD}\nPossible problem with runex1_s2t3, diffs above\n=========================================\n"; fi ;\
+	   ${RM} -f ex1_s2t3.tmp
 runex3_nonconforming_simplex_2_view:
 	-@${MPIEXEC} -n 4 ./ex3 -petscpartitioner_type simple -tree -num_comp 2 -simplex 1 -dim 2 -dm_view vtk:nonconformal_simplex_2.vtu:vtk_vtu
 runex3_nonconforming_tensor_2_view:

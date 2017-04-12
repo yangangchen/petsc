@@ -945,7 +945,7 @@ PetscErrorCode DMPlexCreateHexBoxMesh(MPI_Comm comm, PetscInt dim, const PetscIn
         maxCell[i] = 1.1 * (L[i] / PetscMax(1,cells[i]));
       }
 
-      ierr = DMSetPeriodicity(*dm,maxCell,L,bdType);CHKERRQ(ierr);
+      ierr = DMSetPeriodicity(*dm, PETSC_TRUE, maxCell, L ,bdType);CHKERRQ(ierr);
     }
     break;
   }
@@ -970,7 +970,7 @@ PetscErrorCode DMPlexCreateHexBoxMesh(MPI_Comm comm, PetscInt dim, const PetscIn
         maxCell[i] = 1.1 * (L[i] / cells[i]);
       }
 
-      ierr = DMSetPeriodicity(*dm,maxCell,L,bdType);CHKERRQ(ierr);
+      ierr = DMSetPeriodicity(*dm, PETSC_TRUE, maxCell, L ,bdType);CHKERRQ(ierr);
     }
     break;
   }
@@ -1202,7 +1202,7 @@ PetscErrorCode DMPlexCreateHexCylinderMesh(MPI_Comm comm, PetscInt numRefine, DM
       L[i]       = upper[i] - lower[i];
       maxCell[i] = 1.1 * (L[i] / numZCells);
     }
-    ierr = DMSetPeriodicity(*dm, maxCell, L, bdType);CHKERRQ(ierr);
+    ierr = DMSetPeriodicity(*dm, PETSC_TRUE, maxCell, L, bdType);CHKERRQ(ierr);
   }
   /* Refine topology */
   for (r = 0; r < numRefine; ++r) {
@@ -1323,12 +1323,13 @@ extern PetscErrorCode DMCreateSubDM_Plex(DM dm, PetscInt numFields, PetscInt fie
 */
 static PetscErrorCode DMPlexReplace_Static(DM dm, DM dmNew)
 {
-  PetscSF          sf;
-  DM               coordDM, coarseDM;
-  Vec              coords;
-  const PetscReal *maxCell, *L;
+  PetscSF               sf;
+  DM                    coordDM, coarseDM;
+  Vec                   coords;
+  PetscBool             isper;
+  const PetscReal      *maxCell, *L;
   const DMBoundaryType *bd;
-  PetscErrorCode   ierr;
+  PetscErrorCode        ierr;
 
   PetscFunctionBegin;
   ierr = DMGetPointSF(dmNew, &sf);CHKERRQ(ierr);
@@ -1337,8 +1338,8 @@ static PetscErrorCode DMPlexReplace_Static(DM dm, DM dmNew)
   ierr = DMGetCoordinatesLocal(dmNew, &coords);CHKERRQ(ierr);
   ierr = DMSetCoordinateDM(dm, coordDM);CHKERRQ(ierr);
   ierr = DMSetCoordinatesLocal(dm, coords);CHKERRQ(ierr);
-  ierr = DMGetPeriodicity(dm, &maxCell, &L, &bd);CHKERRQ(ierr);
-  if (L) {ierr = DMSetPeriodicity(dmNew, maxCell, L, bd);CHKERRQ(ierr);}
+  ierr = DMGetPeriodicity(dm, &isper, &maxCell, &L, &bd);CHKERRQ(ierr);
+  ierr = DMSetPeriodicity(dmNew, isper, maxCell, L, bd);CHKERRQ(ierr);
   ierr = DMDestroy_Plex(dm);CHKERRQ(ierr);
   dm->data = dmNew->data;
   ((DM_Plex *) dmNew->data)->refct++;

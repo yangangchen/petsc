@@ -2549,7 +2549,7 @@ int initLinearWave(EulerNode *ux, const PetscScalar gamma, const PetscReal coord
   test:
     suffix: 5
     requires: exodusii
-    args: -ufv_vtk_interval 0 -f ${PETSC_DIR}/share/petsc/datafiles/meshes/sevenside.exo -ts_type rosw -ts_adapt_basic_reject_safety 1
+    args: -ufv_vtk_interval 0 -f ${PETSC_DIR}/share/petsc/datafiles/meshes/sevenside.exo -ts_type rosw -ts_adapt_reject_safety 1
   test:
     suffix: 6
     requires: exodusii

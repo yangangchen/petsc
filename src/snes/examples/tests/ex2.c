@@ -292,7 +292,7 @@ int main(int argc, char **argv)
 
       for (i = 0; i < spaceDim; i++) vcoordsReal[i] = PetscRealPart(vcoords[p * spaceDim + i]);
 #else
-      PetscReal *vcoordsReal = &vcoords[p*spaceDim];
+      const PetscReal *vcoordsReal = &vcoords[p*spaceDim];
 #endif
       (*funcs[c])(ctx.dim, 0.0, vcoordsReal, 1, vals, NULL);
       if (PetscAbsScalar(ivals[p*Nc+c] - vals[c]) > PETSC_SQRT_MACHINE_EPSILON)

@@ -4340,7 +4340,8 @@ PetscErrorCode DMSetPeriodicity(DM dm, PetscBool per, const PetscReal maxCell[],
 
   Input Parameters:
 + dm     - The DM
-- in     - The input coordinate point (dim numbers)
+. in     - The input coordinate point (dim numbers)
+- endpoint - Include the endpoint L_i
 
   Output Parameter:
 . out - The localized coordinate point
@@ -4349,7 +4350,7 @@ PetscErrorCode DMSetPeriodicity(DM dm, PetscBool per, const PetscReal maxCell[],
 
 .seealso: DMLocalizeCoordinates(), DMLocalizeAddCoordinate()
 @*/
-PetscErrorCode DMLocalizeCoordinate(DM dm, const PetscScalar in[], PetscScalar out[])
+PetscErrorCode DMLocalizeCoordinate(DM dm, const PetscScalar in[], PetscBool endpoint, PetscScalar out[])
 {
   PetscInt       dim, d;
   PetscErrorCode ierr;
@@ -4359,8 +4360,18 @@ PetscErrorCode DMLocalizeCoordinate(DM dm, const PetscScalar in[], PetscScalar o
   if (!dm->maxCell) {
     for (d = 0; d < dim; ++d) out[d] = in[d];
   } else {
-    for (d = 0; d < dim; ++d) {
-      out[d] = in[d] - dm->L[d]*floor(PetscRealPart(in[d])/dm->L[d]);
+    if (endpoint) {
+      for (d = 0; d < dim; ++d) {
+        if ((PetscAbsReal(PetscRealPart(in[d])/dm->L[d] - floor(PetscRealPart(in[d])/dm->L[d])) < PETSC_SMALL) && (PetscRealPart(in[d])/dm->L[d] > PETSC_SMALL)) {
+          out[d] = in[d] - dm->L[d]*(floor(PetscRealPart(in[d])/dm->L[d]) - 1);
+        } else {
+          out[d] = in[d] - dm->L[d]*floor(PetscRealPart(in[d])/dm->L[d]);
+        }
+      }
+    } else {
+      for (d = 0; d < dim; ++d) {
+        out[d] = in[d] - dm->L[d]*floor(PetscRealPart(in[d])/dm->L[d]);
+      }
     }
   }
   PetscFunctionReturn(0);

@@ -19,9 +19,9 @@ typedef struct {
   PetscBool     interpolate;                  /* Generate intermediate mesh elements */
   PetscReal     refinementLimit;              /* The largest allowable cell volume */
   PetscBool     cellSimplex;                  /* Use simplices or hexes */
+  PetscBool     simplex2tensor;               /* Refine simplicials in hexes */
   DomainShape   domainShape;                  /* Shep of the region to be meshed */
   DMBoundaryType periodicity[3];              /* The domain periodicity */
-  PetscBool     simplex2tensor;               /* Refine simplicials in hexes */
   char          filename[PETSC_MAX_PATH_LEN]; /* Import mesh from file */
   PetscBool     testPartition;                /* Use a fixed partitioning for testing */
   PetscInt      overlap;                      /* The cell overlap to use during partitioning */
@@ -56,6 +56,8 @@ PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   ierr = PetscOptionsBool("-interpolate", "Generate intermediate mesh elements", "ex1.c", options->interpolate, &options->interpolate, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsReal("-refinement_limit", "The largest allowable cell volume", "ex1.c", options->refinementLimit, &options->refinementLimit, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsBool("-cell_simplex", "Use simplices if true, otherwise hexes", "ex1.c", options->cellSimplex, &options->cellSimplex, NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsBool("-simplex2tensor", "Refine simplicial cells in tensor product cells", "ex1.c", options->simplex2tensor, &options->simplex2tensor, NULL);CHKERRQ(ierr);
+  if (options->simplex2tensor) options->interpolate = PETSC_TRUE;
   shape = options->domainShape;
   ierr = PetscOptionsEList("-domain_shape","The shape of the domain","ex1.c", dShapes, 2, dShapes[options->domainShape], &shape, NULL);CHKERRQ(ierr);
   options->domainShape = (DomainShape) shape;
@@ -68,8 +70,6 @@ PetscErrorCode ProcessOptions(MPI_Comm comm, AppCtx *options)
   bd = options->periodicity[2];
   ierr = PetscOptionsEList("-z_periodicity", "The z-boundary periodicity", "ex1.c", DMBoundaryTypes, 5, DMBoundaryTypes[options->periodicity[2]], &bd, NULL);CHKERRQ(ierr);
   options->periodicity[2] = (DMBoundaryType) bd;
-  ierr = PetscOptionsBool("-simplex2tensor", "Refine simplicial cells in tensor product cells", "ex1.c", options->simplex2tensor, &options->simplex2tensor, NULL);CHKERRQ(ierr);
-  if (options->simplex2tensor) options->interpolate = PETSC_TRUE;
   ierr = PetscOptionsString("-filename", "The mesh file", "ex1.c", options->filename, options->filename, PETSC_MAX_PATH_LEN, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsBool("-test_partition", "Use a fixed partition for testing", "ex1.c", options->testPartition, &options->testPartition, NULL);CHKERRQ(ierr);
   ierr = PetscOptionsInt("-overlap", "The cell overlap for partitioning", "ex1.c", options->overlap, &options->overlap, NULL);CHKERRQ(ierr);
@@ -489,6 +489,17 @@ int main(int argc, char **argv)
     suffix: test_shape
     requires: ctetgen
     args: -dim 3 -interpolate -dm_refine_hierarchy 3 -test_shape
+
+  # Test simplex to tensor conversion
+  test:
+    suffix: s2t2
+    requires: triangle
+    args: -dim 2 -simplex2tensor -refinement_limit 0.0625 -dm_view ascii::ascii_info_detail
+
+  test:
+    suffix: s2t3
+    requires: ctetgen
+    args: -dim 3 -simplex2tensor -refinement_limit 0.0625 -dm_view ascii::ascii_info_detail
 
   # Test domain shapes
   test:

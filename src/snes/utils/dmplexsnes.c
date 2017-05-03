@@ -155,8 +155,8 @@ PetscErrorCode DMInterpolationSetUp(DMInterpolationInfo ctx, DM dm, PetscBool re
   /* foundCells[p] = m->locatePoint(&globalPoints[p*ctx->dim]); */
 #else
 #if defined(PETSC_USE_COMPLEX)
-  ierr = PetscMalloc1(N,&globalPointsScalar);CHKERRQ(ierr);
-  for (i=0; i<N; i++) globalPointsScalar[i] = globalPoints[i];
+  ierr = PetscMalloc1(N*ctx->dim,&globalPointsScalar);CHKERRQ(ierr);
+  for (i=0; i<N*ctx->dim; i++) globalPointsScalar[i] = globalPoints[i];
 #else
   globalPointsScalar = globalPoints;
 #endif

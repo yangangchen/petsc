@@ -105,7 +105,7 @@ typedef struct {
 } Userctx;
 
 /* Used to read data into the DMNetwork components */
-PetscErrorCode read_data(PetscInt nc, Mat Ybus,Vec V0,Gen **pgen,Load **pload,Bus **pbus, Branch **pbranch, PetscInt **pedgelist)
+PetscErrorCode read_data(PetscInt nc, Gen **pgen,Load **pload,Bus **pbus, Branch **pbranch, PetscInt **pedgelist)
 {
   PetscErrorCode    ierr;
   PetscInt          i,j,row[1],col[2];
@@ -117,43 +117,65 @@ PetscErrorCode read_data(PetscInt nc, Mat Ybus,Vec V0,Gen **pgen,Load **pload,Bu
   Branch            *branch;
   Gen               *gen;
   Load              *load;
+  Mat               Ybus;
+  Vec               V0;
 
   /*10 parameters*/
   /* Generator real and reactive powers (found via loadflow) */
-  PetscScalar PG[3] = {0.716786142395021,1.630000000000000,0.850000000000000};
-  PetscScalar QG[3] = {0.270702180178785,0.066120127797275,-0.108402221791588};
+  static const PetscScalar PG[3] = {0.716786142395021,1.630000000000000,0.850000000000000};
+  static const PetscScalar QG[3] = {0.270702180178785,0.066120127797275,-0.108402221791588};
 
   /* Generator constants */
-  PetscScalar H[3]    = {23.64,6.4,3.01};   /* Inertia constant */
-  PetscScalar Rs[3]   = {0.0,0.0,0.0}; /* Stator Resistance */
-  PetscScalar Xd[3]   = {0.146,0.8958,1.3125};  /* d-axis reactance */
-  PetscScalar Xdp[3]  = {0.0608,0.1198,0.1813}; /* d-axis transient reactance */
-  PetscScalar Xq[3]   = {0.4360,0.8645,1.2578}; /* q-axis reactance Xq(1) set to 0.4360, value given in text 0.0969 */
-  PetscScalar Xqp[3]  = {0.0969,0.1969,0.25}; /* q-axis transient reactance */
-  PetscScalar Td0p[3] = {8.96,6.0,5.89}; /* d-axis open circuit time constant */
-  PetscScalar Tq0p[3] = {0.31,0.535,0.6}; /* q-axis open circuit time constant */
+  static const PetscScalar H[3]    = {23.64,6.4,3.01};   /* Inertia constant */
+  static const PetscScalar Rs[3]   = {0.0,0.0,0.0}; /* Stator Resistance */
+  static const PetscScalar Xd[3]   = {0.146,0.8958,1.3125};  /* d-axis reactance */
+  static const PetscScalar Xdp[3]  = {0.0608,0.1198,0.1813}; /* d-axis transient reactance */
+  static const PetscScalar Xq[3]   = {0.4360,0.8645,1.2578}; /* q-axis reactance Xq(1) set to 0.4360, value given in text 0.0969 */
+  static const PetscScalar Xqp[3]  = {0.0969,0.1969,0.25}; /* q-axis transient reactance */
+  static const PetscScalar Td0p[3] = {8.96,6.0,5.89}; /* d-axis open circuit time constant */
+  static const PetscScalar Tq0p[3] = {0.31,0.535,0.6}; /* q-axis open circuit time constant */
 
   /* Exciter system constants (8 parameters)*/
-  PetscScalar KA[3] = {20.0,20.0,20.0};  /* Voltage regulartor gain constant */
-  PetscScalar TA[3] = {0.2,0.2,0.2};     /* Voltage regulator time constant */
-  PetscScalar KE[3] = {1.0,1.0,1.0};     /* Exciter gain constant */
-  PetscScalar TE[3] = {0.314,0.314,0.314}; /* Exciter time constant */
-  PetscScalar KF[3] = {0.063,0.063,0.063};  /* Feedback stabilizer gain constant */
-  PetscScalar TF[3] = {0.35,0.35,0.35};    /* Feedback stabilizer time constant */
-  PetscScalar k1[3] = {0.0039,0.0039,0.0039};
-  PetscScalar k2[3] = {1.555,1.555,1.555};  /* k1 and k2 for calculating the saturation function SE = k1*exp(k2*Efd) */
+  static const PetscScalar KA[3] = {20.0,20.0,20.0};  /* Voltage regulartor gain constant */
+  static const PetscScalar TA[3] = {0.2,0.2,0.2};     /* Voltage regulator time constant */
+  static const PetscScalar KE[3] = {1.0,1.0,1.0};     /* Exciter gain constant */
+  static const PetscScalar TE[3] = {0.314,0.314,0.314}; /* Exciter time constant */
+  static const PetscScalar KF[3] = {0.063,0.063,0.063};  /* Feedback stabilizer gain constant */
+  static const PetscScalar TF[3] = {0.35,0.35,0.35};    /* Feedback stabilizer time constant */
+  static const PetscScalar k1[3] = {0.0039,0.0039,0.0039};
+  static const PetscScalar k2[3] = {1.555,1.555,1.555};  /* k1 and k2 for calculating the saturation function SE = k1*exp(k2*Efd) */
 
   /* Load constants */
-   PetscScalar       PD0[3]       = {1.25,0.9,1.0};
-   PetscScalar       QD0[3]       = {0.5,0.3,0.35};
-   PetscScalar       ld_alphaq[3] = {1,0,0};
-   PetscScalar       ld_betaq[3]  = {2,1,0};
-   PetscScalar       ld_betap[3]  = {2,1,0};
-   const PetscScalar ld_alphap[3] = {1,0,0};
-   PetscInt          ld_nsegsp[3] = {3,3,3};
-   PetscInt          ld_nsegsq[3] = {3,3,3};
+   static const PetscScalar       PD0[3]       = {1.25,0.9,1.0};
+   static const PetscScalar       QD0[3]       = {0.5,0.3,0.35};
+   static const PetscScalar       ld_alphaq[3] = {1,0,0};
+   static const PetscScalar       ld_betaq[3]  = {2,1,0};
+   static const PetscScalar       ld_betap[3]  = {2,1,0};
+   static const PetscScalar       ld_alphap[3] = {1,0,0};
+   PetscInt                       ld_nsegsp[3] = {3,3,3};
+   PetscInt                       ld_nsegsq[3] = {3,3,3};
+   PetscViewer                    Xview,Ybusview;
+   PetscInt                       neqs_net,m,n;
 
    PetscFunctionBeginUser;
+   /* Read V0 and Ybus from files */
+   ierr = PetscViewerBinaryOpen(PETSC_COMM_SELF,"X.bin",FILE_MODE_READ,&Xview);CHKERRQ(ierr);
+   ierr = PetscViewerBinaryOpen(PETSC_COMM_SELF,"Ybus.bin",FILE_MODE_READ,&Ybusview);CHKERRQ(ierr);
+   ierr = VecCreate(PETSC_COMM_SELF,&V0);CHKERRQ(ierr);
+   ierr = VecLoad(V0,Xview);CHKERRQ(ierr);
+
+   ierr = MatCreate(PETSC_COMM_SELF,&Ybus);CHKERRQ(ierr);
+   ierr = MatSetType(Ybus,MATBAIJ);CHKERRQ(ierr);
+   ierr = MatLoad(Ybus,Ybusview);CHKERRQ(ierr);
+
+   /* Destroy unnecessary stuff */
+   ierr = PetscViewerDestroy(&Xview);CHKERRQ(ierr);
+   ierr = PetscViewerDestroy(&Ybusview);CHKERRQ(ierr);
+
+   ierr = MatGetLocalSize(Ybus,&m,&n);CHKERRQ(ierr);
+   neqs_net = 2*NBUS; /* # eqs. for network subsystem   */
+   if (m != neqs_net || n != neqs_net) SETERRQ(PETSC_COMM_SELF,0,"matrix Ybus is in wrong sizes");
+
    M[0] = 2*H[0]/W_S;
    M[1] = 2*H[1]/W_S;
    M[2] = 2*H[2]/W_S;
@@ -186,7 +208,7 @@ PetscErrorCode read_data(PetscInt nc, Mat Ybus,Vec V0,Gen **pgen,Load **pload,Bu
    for (i = 0; i<nc; i++){
      for (j = 0; j < NGEN; j++) {
        gen[i*3+j].id   = i*3+j;
-       gen[i*3+j].PG   = PG[j]; /* a compiler warning: "Assigned value is garbage or undefined" */
+       gen[i*3+j].PG   = PG[j];
        gen[i*3+j].QG   = QG[j];
        gen[i*3+j].H    = H[j];
        gen[i*3+j].Rs   = Rs[j];
@@ -215,7 +237,7 @@ PetscErrorCode read_data(PetscInt nc, Mat Ybus,Vec V0,Gen **pgen,Load **pload,Bu
    for (i = 0; i<nc; i++){
      for (j = 0; j < NLOAD; j++) {
        load[i*3+j].id        = i*3+j;
-       load[i*3+j].PD0       = PD0[j];  /* a compiler warning: "Assigned value is garbage or undefined" */
+       load[i*3+j].PD0       = PD0[j];
        load[i*3+j].QD0       = QD0[j];
        load[i*3+j].ld_nsegsp = ld_nsegsp[j];
 
@@ -322,6 +344,10 @@ PetscErrorCode read_data(PetscInt nc, Mat Ybus,Vec V0,Gen **pgen,Load **pload,Bu
    *pedgelist = edgelist;
 
    ierr = VecRestoreArray(V0,&varr);CHKERRQ(ierr);
+
+   /* Destroy unnecessary stuff */
+   ierr = MatDestroy(&Ybus);CHKERRQ(ierr);
+   ierr = VecDestroy(&V0);CHKERRQ(ierr);
    PetscFunctionReturn(0);
 }
 
@@ -379,12 +405,19 @@ PetscErrorCode SetInitialGuess(DM networkdm, Vec X)
         Vm  = PetscSqrtScalar(Vr*Vr + Vi*Vi);
         Vm2 = Vm*Vm;
         /* Real part of gen current */
-        IGr = (Vr*gen->PG + Vi*gen->QG)/Vm2;
+        IGr = (Vr*gen->PG + Vi*gen->QG)/Vm2;  //gen->QG = 0 on n-gage???
         /* Imaginary part of gen current */
         IGi = (Vi*gen->PG - Vr*gen->QG)/Vm2;
+#if 0
+        if (v==11) {
+          printf("IGr %g = (%g * %g + %g * %g)/%g \n",IGr,Vr,gen->PG,Vi,gen->QG,Vm2);
+          printf("IGi %g = (%g * %g + %g * %g)/%g \n",IGi,Vi,gen->PG, Vr,gen->QG,Vm2);
+        }
+#endif
 
         /* Machine angle */
         delta = atan2(Vi+gen->Xq*IGr,Vr-gen->Xq*IGi);
+        //printf("v %d, j %d, delta =atan2(%g + %g*%g, %g - %g*%g) = %g\n",v,j,Vi,gen->Xq,IGr,Vr,gen->Xq,IGi,delta);
         theta = PETSC_PI/2.0 - delta;
 
         /* d-axis stator current */
@@ -430,6 +463,7 @@ PetscErrorCode SetInitialGuess(DM networkdm, Vec X)
   ierr = DMLocalToGlobalBegin(networkdm,localX,ADD_VALUES,X);CHKERRQ(ierr);
   ierr = DMLocalToGlobalEnd(networkdm,localX,ADD_VALUES,X);CHKERRQ(ierr);
   ierr = DMRestoreLocalVector(networkdm,&localX);CHKERRQ(ierr);
+  //ierr = VecView(X,0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
  }
 
@@ -922,11 +956,9 @@ int main(int argc,char ** argv)
   PetscInt       nc = 1;    /* No. of copies (default = 1) */
   PetscInt       neqs_net=0;/* No. of algebraic equations in the 9 bus system */
   PetscMPIInt    size,rank;
-  Vec            X,F,F_alg,Xdot,V0;
+  Vec            X,F_alg;
   TS             ts;
   SNES           snes_alg,snes;
-  PetscViewer    Xview,Ybusview;
-  Mat            Ybus; /* Network admittance matrix */
   Bus            *bus;
   Branch         *branch;
   Gen            *gen;
@@ -944,26 +976,7 @@ int main(int argc,char ** argv)
 
   /* Read initial voltage vector and Ybus */
   if (!rank) {
-    neqs_net = 2*NBUS; /* # eqs. for network subsystem   */
-
-    ierr = PetscViewerBinaryOpen(PETSC_COMM_SELF,"X.bin",FILE_MODE_READ,&Xview);CHKERRQ(ierr);
-    ierr = PetscViewerBinaryOpen(PETSC_COMM_SELF,"Ybus.bin",FILE_MODE_READ,&Ybusview);CHKERRQ(ierr);
-
-    ierr = VecCreate(PETSC_COMM_SELF,&V0);CHKERRQ(ierr);
-    ierr = VecSetSizes(V0,PETSC_DECIDE,neqs_net);CHKERRQ(ierr);
-    ierr = VecLoad(V0,Xview);CHKERRQ(ierr);
-    ierr = MatCreate(PETSC_COMM_SELF,&Ybus);CHKERRQ(ierr);
-    ierr = MatSetSizes(Ybus,PETSC_DECIDE,PETSC_DECIDE,neqs_net,neqs_net);CHKERRQ(ierr);
-    ierr = MatGetLocalSize(Ybus,&m,&n);CHKERRQ(ierr);
-    ierr = MatSetType(Ybus,MATBAIJ);CHKERRQ(ierr);
-    ierr = MatLoad(Ybus,Ybusview);CHKERRQ(ierr);
-
-    /*read data */
-    ierr = read_data(nc,Ybus,V0,&gen,&load,&bus,&branch,&edgelist);CHKERRQ(ierr);
-
-    /* Destroy unnecessary stuff */
-    ierr = PetscViewerDestroy(&Xview);CHKERRQ(ierr);
-    ierr = PetscViewerDestroy(&Ybusview);CHKERRQ(ierr);
+    ierr = read_data(nc,&gen,&load,&bus,&branch,&edgelist);CHKERRQ(ierr);
   }
 
   ierr = DMNetworkCreate(PETSC_COMM_WORLD,&networkdm);CHKERRQ(ierr);
@@ -1036,8 +1049,6 @@ int main(int argc,char ** argv)
   ierr = PetscLogStagePop();CHKERRQ(ierr);
 
   ierr = DMCreateGlobalVector(networkdm,&X);CHKERRQ(ierr);
-  ierr = DMCreateGlobalVector(networkdm,&Xdot);CHKERRQ(ierr);
-  ierr = VecDuplicate(X,&F);CHKERRQ(ierr);
 
   ierr = SetInitialGuess(networkdm,X);CHKERRQ(ierr);
 
@@ -1066,6 +1077,7 @@ int main(int argc,char ** argv)
   ierr = TSCreate(PETSC_COMM_WORLD,&ts);CHKERRQ(ierr);
   ierr = TSSetDM(ts,(DM)networkdm);CHKERRQ(ierr);
   ierr = TSSetType(ts,TSCN);CHKERRQ(ierr);
+
   ierr = TSGetSNES(ts,&snes);CHKERRQ(ierr);
   ierr = SNESGetKSP(snes,&ksp);CHKERRQ(ierr);
   ierr = KSPGetPC(ksp,&pc);CHKERRQ(ierr);
@@ -1085,10 +1097,14 @@ int main(int argc,char ** argv)
   if (!rank) {
     ierr = PetscPrintf(PETSC_COMM_SELF,"... (1) Prefault period ... \n");CHKERRQ(ierr);
   }
+
+  ierr = TSSetSolution(ts,X);CHKERRQ(ierr);
+  ierr = TSSetUp(ts);CHKERRQ(ierr);
   ierr = TSSolve(ts,X);CHKERRQ(ierr);
 
   /* Create the nonlinear solver for solving the algebraic system */
   ierr = VecDuplicate(X,&F_alg);CHKERRQ(ierr);
+
   ierr = SNESCreate(PETSC_COMM_WORLD,&snes_alg);CHKERRQ(ierr);
   ierr = SNESSetDM(snes_alg,(DM)networkdm);CHKERRQ(ierr);
   ierr = SNESSetFunction(snes_alg,F_alg,AlgFunction,&user);CHKERRQ(ierr);
@@ -1143,13 +1159,6 @@ int main(int argc,char ** argv)
 
   ierr = VecDestroy(&F_alg);CHKERRQ(ierr);
   ierr = VecDestroy(&X);CHKERRQ(ierr);
-  ierr = VecDestroy(&Xdot);CHKERRQ(ierr);
-  ierr = VecDestroy(&F);CHKERRQ(ierr);
-
-  if (rank == 0){
-    ierr = MatDestroy(&Ybus);CHKERRQ(ierr);
-    ierr = VecDestroy(&V0);CHKERRQ(ierr);
-  }
   ierr = DMDestroy(&networkdm);CHKERRQ(ierr);
   ierr = TSDestroy(&ts);CHKERRQ(ierr);
   PetscFinalize();

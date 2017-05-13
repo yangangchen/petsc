@@ -5512,6 +5512,9 @@ PetscErrorCode MatGetOption(Mat mat,MatOption op,PetscBool *flg)
   case MAT_SYMMETRY_ETERNAL:
     *flg = mat->symmetric_eternal;
     break;
+  case MAT_SPD:
+    *flg = mat->spd;
+    break;
   default:
     break;
   }
@@ -9710,7 +9713,7 @@ PetscErrorCode MatMatMultNumeric(Mat A,Mat B,Mat C)
   To determine the correct fill value, run with -info and search for the string "Fill ratio" to see the value
    actually needed.
 
-   This routine is currently only implemented for pairs of SeqAIJ matrices.  C will be of type MATSEQAIJ.
+   This routine is currently only implemented for pairs of SeqAIJ matrices and for the SeqDense class.
 
    Level: intermediate
 

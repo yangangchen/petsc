@@ -1456,7 +1456,7 @@ PetscErrorCode PCSetUp_BDDC(PC pc)
   /* the following lines of code should be replaced by a better logic between PCIS, PCNN, PCBDDC and other future nonoverlapping preconditioners */
   /* For BDDC we need to define a local "Neumann" problem different to that defined in PCISSetup
      Also, BDDC builds its own KSP for the Dirichlet problem */
-  if (pc->setupcalled && pc->flag != SAME_NONZERO_PATTERN) pcbddc->recompute_topography = PETSC_TRUE;
+  if (!pc->setupcalled || pc->flag == DIFFERENT_NONZERO_PATTERN) pcbddc->recompute_topography = PETSC_TRUE;
   if (pcbddc->recompute_topography) {
     pcbddc->graphanalyzed    = PETSC_FALSE;
     computeconstraintsmatrix = PETSC_TRUE;
@@ -1495,23 +1495,29 @@ PetscErrorCode PCSetUp_BDDC(PC pc)
 
   /* process topology information */
   if (pcbddc->recompute_topography) {
-    PetscContainer   c;
-
-    ierr = PetscObjectQuery((PetscObject)pc->pmat,"_convert_nest_lfields",(PetscObject*)&c);CHKERRQ(ierr);
-    if (c) {
-      MatISLocalFields lf;
-      ierr = PetscContainerGetPointer(c,(void**)&lf);CHKERRQ(ierr);
-      ierr = PCBDDCSetDofsSplittingLocal(pc,lf->nr,lf->rf);CHKERRQ(ierr);
-    }
     ierr = PCBDDCComputeLocalTopologyInfo(pc);CHKERRQ(ierr);
     /* detect local disconnected subdomains if requested (use matis->A) */
     if (pcbddc->detect_disconnected) {
+      IS       primalv;
       PetscInt i;
+
       for (i=0;i<pcbddc->n_local_subs;i++) {
         ierr = ISDestroy(&pcbddc->local_subs[i]);CHKERRQ(ierr);
       }
       ierr = PetscFree(pcbddc->local_subs);CHKERRQ(ierr);
-      ierr = MatDetectDisconnectedComponents(matis->A,PETSC_FALSE,&pcbddc->n_local_subs,&pcbddc->local_subs);CHKERRQ(ierr);
+      ierr = PCBDDCDetectDisconnectedComponents(pc,&pcbddc->n_local_subs,&pcbddc->local_subs,&primalv);CHKERRQ(ierr);
+      if (primalv) {
+        if (pcbddc->user_primal_vertices_local) {
+          IS list[2] = {primalv, pcbddc->user_primal_vertices_local}, newp;
+
+          ierr = ISConcatenate(PetscObjectComm((PetscObject)pc),2,list,&newp);CHKERRQ(ierr);
+          ierr = ISDestroy(&list[0]);CHKERRQ(ierr);
+          ierr = ISDestroy(&list[1]);CHKERRQ(ierr);
+          pcbddc->user_primal_vertices_local = newp;
+        } else {
+          pcbddc->user_primal_vertices_local = primalv;
+        }
+      }
     }
     if (pcbddc->discretegradient) {
       ierr = PCBDDCNedelecSupport(pc);CHKERRQ(ierr);
@@ -1583,11 +1589,12 @@ PetscErrorCode PCSetUp_BDDC(PC pc)
     ierr = PCBDDCAnalyzeInterface(pc);CHKERRQ(ierr);
     computeconstraintsmatrix = PETSC_TRUE;
     if (pcbddc->adaptive_selection && !pcbddc->use_deluxe_scaling && !pcbddc->mat_graph->twodim) {
-      SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"Cannot compute the adaptive primal space for a problem with 3D edges without deluxe scaling");
+      SETERRQ(PetscObjectComm((PetscObject)pc),PETSC_ERR_SUP,"Cannot compute the adaptive primal space for a problem with 3D edges without deluxe scaling");
     }
     if (pcbddc->compute_nonetflux) {
       MatNullSpace nnfnnsp;
 
+      if (!pcbddc->divudotp) SETERRQ(PetscObjectComm((PetscObject)pc),PETSC_ERR_SUP,"Missing divudotp operator");
       ierr = PCBDDCComputeNoNetFlux(pc->pmat,pcbddc->divudotp,pcbddc->divudotp_trans,pcbddc->divudotp_vl2l,pcbddc->mat_graph,&nnfnnsp);CHKERRQ(ierr);
       /* TODO what if a nearnullspace is already attached? */
       ierr = MatSetNearNullSpace(pc->pmat,nnfnnsp);CHKERRQ(ierr);
@@ -2408,15 +2415,48 @@ static PetscErrorCode PCBDDCCreateFETIDPOperators_BDDC(PC pc, PetscBool fully_re
   ierr = PCBDDCCreateFETIDPPCContext(pc,&fetidppc_ctx);CHKERRQ(ierr);
   ierr = PCBDDCSetupFETIDPPCContext(newmat,fetidppc_ctx);CHKERRQ(ierr);
   ierr = PCCreate(comm,&newpc);CHKERRQ(ierr);
-  ierr = PCSetType(newpc,PCSHELL);CHKERRQ(ierr);
-  ierr = PCShellSetContext(newpc,fetidppc_ctx);CHKERRQ(ierr);
-  ierr = PCShellSetApply(newpc,FETIDPPCApply);CHKERRQ(ierr);
-  ierr = PCShellSetApplyTranspose(newpc,FETIDPPCApplyTranspose);CHKERRQ(ierr);
-  ierr = PCShellSetView(newpc,FETIDPPCView);CHKERRQ(ierr);
-  ierr = PCShellSetDestroy(newpc,PCBDDCDestroyFETIDPPC);CHKERRQ(ierr);
   ierr = PCSetOperators(newpc,newmat,newmat);CHKERRQ(ierr);
   ierr = PCSetOptionsPrefix(newpc,prefix);CHKERRQ(ierr);
   ierr = PCAppendOptionsPrefix(newpc,"fetidp_");CHKERRQ(ierr);
+  if (!fetidpmat_ctx->l2g_lambda_only) {
+    ierr = PCSetType(newpc,PCSHELL);CHKERRQ(ierr);
+    ierr = PCShellSetContext(newpc,fetidppc_ctx);CHKERRQ(ierr);
+    ierr = PCShellSetApply(newpc,FETIDPPCApply);CHKERRQ(ierr);
+    ierr = PCShellSetApplyTranspose(newpc,FETIDPPCApplyTranspose);CHKERRQ(ierr);
+    ierr = PCShellSetView(newpc,FETIDPPCView);CHKERRQ(ierr);
+    ierr = PCShellSetDestroy(newpc,PCBDDCDestroyFETIDPPC);CHKERRQ(ierr);
+  } else {
+    KSP      *ksps;
+    PC       lagpc;
+    Mat      M,AM,PM;
+    PetscInt nn;
+
+    ierr = PetscObjectQuery((PetscObject)pc,"__KSPFETIDP_PPmat",(PetscObject*)&M);CHKERRQ(ierr);
+    ierr = PCSetType(newpc,PCFIELDSPLIT);CHKERRQ(ierr);
+    ierr = PCFieldSplitSetIS(newpc,"lag",fetidpmat_ctx->lagrange);CHKERRQ(ierr);
+    ierr = PCFieldSplitSetIS(newpc,"p",fetidpmat_ctx->pressure);CHKERRQ(ierr);
+    ierr = PCFieldSplitSetType(newpc,PC_COMPOSITE_SCHUR);CHKERRQ(ierr);
+    ierr = PCFieldSplitSetSchurFactType(newpc,PC_FIELDSPLIT_SCHUR_FACT_DIAG);CHKERRQ(ierr);
+    ierr = PCFieldSplitSetSchurPre(newpc,PC_FIELDSPLIT_SCHUR_PRE_USER,M);CHKERRQ(ierr);
+    ierr = PCFieldSplitSetSchurScale(newpc,1.0);CHKERRQ(ierr);
+    ierr = PCSetFromOptions(newpc);CHKERRQ(ierr);
+    ierr = PCSetUp(newpc);CHKERRQ(ierr);
+
+    /* set the solver for the (0,0) block */
+    ierr = PCFieldSplitGetSubKSP(newpc,&nn,&ksps);CHKERRQ(ierr);
+    ierr = PCCreate(comm,&lagpc);CHKERRQ(ierr);
+    ierr = PCSetType(lagpc,PCSHELL);CHKERRQ(ierr);
+    ierr = KSPGetOperators(ksps[0],&AM,&PM);CHKERRQ(ierr);
+    ierr = PCSetOperators(lagpc,AM,PM);CHKERRQ(ierr);
+    ierr = PCShellSetContext(lagpc,fetidppc_ctx);CHKERRQ(ierr);
+    ierr = PCShellSetApply(lagpc,FETIDPPCApply);CHKERRQ(ierr);
+    ierr = PCShellSetApplyTranspose(lagpc,FETIDPPCApplyTranspose);CHKERRQ(ierr);
+    ierr = PCShellSetView(lagpc,FETIDPPCView);CHKERRQ(ierr);
+    ierr = PCShellSetDestroy(lagpc,PCBDDCDestroyFETIDPPC);CHKERRQ(ierr);
+    ierr = KSPSetPC(ksps[0],lagpc);CHKERRQ(ierr);
+    ierr = PCDestroy(&lagpc);CHKERRQ(ierr);
+    ierr = PetscFree(ksps);CHKERRQ(ierr);
+  }
   /* return pointers for objects created */
   *fetidp_mat = newmat;
   *fetidp_pc = newpc;
@@ -2452,7 +2492,7 @@ PetscErrorCode PCBDDCCreateFETIDPOperators(PC pc, PetscBool fully_redundant, con
   PetscValidHeaderSpecific(pc,PC_CLASSID,1);
   if (pc->setupcalled) {
     ierr = PetscUseMethod(pc,"PCBDDCCreateFETIDPOperators_C",(PC,PetscBool,const char*,Mat*,PC*),(pc,fully_redundant,prefix,fetidp_mat,fetidp_pc));CHKERRQ(ierr);
-  } else SETERRQ(PETSC_COMM_SELF,PETSC_ERR_SUP,"You must call PCSetup_BDDC() first \n");
+  } else SETERRQ(PetscObjectComm((PetscObject)pc),PETSC_ERR_SUP,"You must call PCSetup_BDDC() first \n");
   PetscFunctionReturn(0);
 }
 /* -------------------------------------------------------------------------- */

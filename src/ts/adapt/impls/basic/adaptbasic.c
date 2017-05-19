@@ -65,7 +65,7 @@ static PetscErrorCode TSAdaptChoose_Basic(TSAdapt adapt,TS ts,PetscReal h,PetscI
     hfac_lte = PetscMin(hfac_lte,1.0);
     adapt->timestepjustincreased--;
   }
-  h_lte = h * PetscClipInterval(hfac_lte,adapt>clip[0],adapt->clip[1]);
+  h_lte = h * PetscClipInterval(hfac_lte,adapt->clip[0],adapt->clip[1]);
 
   *next_h = PetscClipInterval(h_lte,adapt->dt_min,adapt->dt_max);
   *wlte   = enorm;

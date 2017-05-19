@@ -231,8 +231,9 @@ struct _p_TSAdapt {
   PetscReal   clip[2];            /* admissible time step decrease/increase factors */
   PetscReal   dt_min,dt_max;      /* admissible minimum and maximum time step */
   PetscReal   scale_solve_failed; /* scale step by this factor if solver (linear or nonlinear) fails. */
-  NormType    wnormtype;
   PetscViewer monitor;
+  NormType    wnormtype;
+  PetscInt    timestepjustincreased;
 };
 
 typedef struct _p_DMTS *DMTS;

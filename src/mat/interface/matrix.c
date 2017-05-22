@@ -5454,6 +5454,9 @@ PetscErrorCode MatSetOption(Mat mat,MatOption op,PetscBool flg)
   case MAT_SYMMETRY_ETERNAL:
     mat->symmetric_eternal = flg;
     break;
+  case MAT_STRUCTURE_ONLY:
+    mat->structure_only = flg;
+    break;
   default:
     break;
   }

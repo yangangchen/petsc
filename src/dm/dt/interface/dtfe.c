@@ -464,6 +464,7 @@ PetscErrorCode PetscSpaceEvaluate(PetscSpace sp, PetscInt npoints, const PetscRe
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
+  if (!npoints) PetscFunctionReturn(0);
   PetscValidHeaderSpecific(sp, PETSCSPACE_CLASSID, 1);
   PetscValidPointer(points, 3);
   if (B) PetscValidPointer(B, 4);
@@ -1050,8 +1051,9 @@ PetscErrorCode PetscSpaceSetUp_Point(PetscSpace sp)
   PetscErrorCode    ierr;
 
   PetscFunctionBegin;
-  if (!pt->quad->points && sp->order) {
-    ierr = PetscDTGaussJacobiQuadrature(pt->numVariables, sp->Nc, sp->order, -1.0, 1.0, &pt->quad);CHKERRQ(ierr);
+  if (!pt->quad->points && sp->order >= 0) {
+    ierr = PetscQuadratureDestroy(&pt->quad);CHKERRQ(ierr);
+    ierr = PetscDTGaussJacobiQuadrature(pt->numVariables, sp->Nc, PetscMax(sp->order + 1, 1), -1.0, 1.0, &pt->quad);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -1063,6 +1065,7 @@ PetscErrorCode PetscSpaceDestroy_Point(PetscSpace sp)
 
   PetscFunctionBegin;
   ierr = PetscQuadratureDestroy(&pt->quad);CHKERRQ(ierr);
+  ierr = PetscFree(pt);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -3781,6 +3784,10 @@ PetscErrorCode PetscFEGetTabulation(PetscFE fem, PetscInt npoints, const PetscRe
   PetscErrorCode   ierr;
 
   PetscFunctionBegin;
+  if (!npoints) {
+    if (B) *B = NULL; if (D) *D = NULL; if (H) *H = NULL;
+    PetscFunctionReturn(0);
+  }
   PetscValidHeaderSpecific(fem, PETSCFE_CLASSID, 1);
   PetscValidPointer(points, 3);
   if (B) PetscValidPointer(B, 4);

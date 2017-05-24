@@ -107,6 +107,7 @@ struct _n_Model {
 struct _n_User {
   PetscInt numSplitFaces;
   PetscInt vtkInterval;   /* For monitor */
+  char outputBasename[PETSC_MAX_PATH_LEN]; /* Basename for output files */
   PetscInt monitorStepOffset;
   Model    model;
 };
@@ -121,7 +122,6 @@ PETSC_STATIC_INLINE PetscReal DotDIMReal(const PetscReal *x,const PetscReal *y)
 }
 PETSC_STATIC_INLINE PetscReal NormDIM(const PetscReal *x) { return PetscSqrtReal(PetscAbsReal(DotDIMReal(x,x))); }
 
-PETSC_STATIC_INLINE PetscScalar Dot2(const PetscScalar *x,const PetscScalar *y) { return x[0]*y[0] + x[1]*y[1];}
 PETSC_STATIC_INLINE PetscReal Dot2Real(const PetscReal *x,const PetscReal *y) { return x[0]*y[0] + x[1]*y[1];}
 PETSC_STATIC_INLINE PetscReal Norm2Real(const PetscReal *x) { return PetscSqrtReal(PetscAbsReal(Dot2Real(x,x)));}
 PETSC_STATIC_INLINE void Normalize2Real(PetscReal *x) { PetscReal a = 1./Norm2Real(x); x[0] *= a; x[1] *= a; }
@@ -1451,7 +1451,7 @@ static PetscErrorCode MonitorVTK(TS ts,PetscInt stepnum,PetscReal time,Vec X,voi
     if (stepnum == -1) {        /* Final time is not multiple of normal time interval, write it anyway */
       ierr = TSGetTimeStepNumber(ts,&stepnum);CHKERRQ(ierr);
     }
-    ierr = PetscSNPrintf(filename,sizeof filename,"ex11-%03D.vtu",stepnum);CHKERRQ(ierr);
+    ierr = PetscSNPrintf(filename,sizeof filename,"%s-%03D.vtu",user->outputBasename,stepnum);CHKERRQ(ierr);
     ierr = OutputVTK(dm,filename,&viewer);CHKERRQ(ierr);
     ierr = VecView(X,viewer);CHKERRQ(ierr);
     ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
@@ -1599,9 +1599,9 @@ int main(int argc, char **argv)
   TSConvergedReason reason;
   Vec               X;
   PetscViewer       viewer;
-  PetscBool         vtkCellGeom, splitFaces, useAMR, viewInitial;
+  PetscBool         simplex = PETSC_FALSE, vtkCellGeom, splitFaces, useAMR, viewInitial;
   PetscInt          overlap, adaptInterval;
-  char              filename[PETSC_MAX_PATH_LEN] = "sevenside.exo";
+  char              filename[PETSC_MAX_PATH_LEN];
   char              physname[256]  = "advect";
   VecTagger         refineTag = NULL, coarsenTag = NULL;
   PetscErrorCode    ierr;
@@ -1629,6 +1629,7 @@ int main(int argc, char **argv)
     cfl  = 0.9 * 4; /* default SSPRKS2 with s=5 stages is stable for CFL number s-1 */
     ierr = PetscOptionsReal("-ufv_cfl","CFL number per step","",cfl,&cfl,NULL);CHKERRQ(ierr);
     ierr = PetscOptionsString("-f","Exodus.II filename to read","",filename,filename,sizeof(filename),NULL);CHKERRQ(ierr);
+    ierr = PetscOptionsBool("-simplex","Flag to use a simplex mesh","",simplex,&simplex,NULL);CHKERRQ(ierr);
     splitFaces = PETSC_FALSE;
     ierr = PetscOptionsBool("-ufv_split_faces","Split faces between cell sets","",splitFaces,&splitFaces,NULL);CHKERRQ(ierr);
     overlap = 1;
@@ -1636,6 +1637,8 @@ int main(int argc, char **argv)
     user->vtkInterval = 1;
     ierr = PetscOptionsInt("-ufv_vtk_interval","VTK output interval (0 to disable)","",user->vtkInterval,&user->vtkInterval,NULL);CHKERRQ(ierr);
     vtkCellGeom = PETSC_FALSE;
+    ierr = PetscStrcpy(user->outputBasename, "ex11");CHKERRQ(ierr);
+    ierr = PetscOptionsString("-ufv_vtk_basename","VTK output basename","",user->outputBasename,user->outputBasename,PETSC_MAX_PATH_LEN,NULL);CHKERRQ(ierr);
     ierr = PetscOptionsBool("-ufv_vtk_cellgeom","Write cell geometry (for debugging)","",vtkCellGeom,&vtkCellGeom,NULL);CHKERRQ(ierr);
     ierr = PetscOptionsBool("-ufv_use_amr","use local adaptive mesh refinement","",useAMR,&useAMR,NULL);CHKERRQ(ierr);
     ierr = PetscOptionsBool("-ufv_view_initial_refinement","View initial conditions refinement history","",viewInitial,&viewInitial,NULL);CHKERRQ(ierr);
@@ -1699,7 +1702,11 @@ int main(int argc, char **argv)
         dim = nret1;
         if (dim != DIM) SETERRQ1(comm,PETSC_ERR_ARG_SIZ,"Dim wrong size %D in -grid_size",dim);CHKERRQ(ierr);
       }
-      ierr = DMPlexCreateHexBoxMesh(comm, dim, cells, mod->bcs[0], mod->bcs[1], mod->bcs[2], &dm);CHKERRQ(ierr);
+      if (simplex) {
+        ierr = DMPlexCreateBoxMesh(comm, dim, cells[0], PETSC_TRUE, &dm);CHKERRQ(ierr);
+      } else {
+        ierr = DMPlexCreateHexBoxMesh(comm, dim, cells, mod->bcs[0], mod->bcs[1], mod->bcs[2], &dm);CHKERRQ(ierr);
+      }
       if (flg2) {
         PetscInt dimEmbed, i;
         PetscInt nCoords;
@@ -1732,12 +1739,11 @@ int main(int argc, char **argv)
         ierr = VecRestoreArray(coordinates,&coords);CHKERRQ(ierr);
         ierr = DMSetCoordinatesLocal(dm,coordinates);CHKERRQ(ierr);
       }
-    }
-    else {
+    } else {
       ierr = DMPlexCreateFromFile(comm, filename, PETSC_TRUE, &dm);CHKERRQ(ierr);
     }
   }
-  ierr = DMViewFromOptions(dm, NULL, "-dm_view");CHKERRQ(ierr);
+  ierr = DMViewFromOptions(dm, NULL, "-orig_dm_view");CHKERRQ(ierr);
   ierr = DMGetDimension(dm, &dim);CHKERRQ(ierr);
 
   /* set up BCs, functions, tags */
@@ -2583,7 +2589,23 @@ int initLinearWave(EulerNode *ux, const PetscReal gamma, const PetscReal coord[]
     suffix: p4est_advec_2d
     requires: p4est
     args: -ufv_vtk_interval 0 -f -dm_type p4est -dm_forest_minimum_refinement 1 -dm_forest_initial_refinement 2 -dm_p4est_refine_pattern hash -dm_forest_maximum_refinement 5
-  # 3D Advection
+  # Advection in a box
+  test:
+    suffix: adv_2d_quad_0
+    requires:
+    args: -ufv_vtk_interval 0 -dm_refine 5 -dm_plex_separate_marker -bc_inflow 1,2,4 -bc_outflow 3
+  test:
+    suffix: adv_2d_quad_1
+    requires:
+    args: -ufv_vtk_interval 0 -dm_refine 5 -dm_plex_separate_marker -grid_bounds -0.5,0.5,-0.5,0.5 -bc_inflow 1,2,4 -bc_outflow 3 -advect_sol_type bump -advect_bump_center 0.25,0 -advect_bump_radius 0.1
+  test:
+    suffix: adv_2d_tri_0
+    requires:
+    args: -ufv_vtk_interval 0 -simplex -dm_refine 3 -dm_plex_separate_marker -bc_inflow 1,2,4 -bc_outflow 3
+  test:
+    suffix: adv_2d_tri_1
+    requires:
+    args: -ufv_vtk_interval 0 -simplex -dm_refine 5 -dm_plex_separate_marker -grid_bounds -0.5,0.5,-0.5,0.5 -bc_inflow 1,2,4 -bc_outflow 3 -advect_sol_type bump -advect_bump_center 0.25,0 -advect_bump_radius 0.1
   test:
     suffix: adv_0
     TODO: broken

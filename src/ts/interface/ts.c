@@ -4902,6 +4902,7 @@ PetscErrorCode  TSMonitorDrawSolutionPhase(TS ts,PetscInt step,PetscReal ptime,V
   }
   ierr = PetscDrawCollectiveEnd(draw);CHKERRQ(ierr);
   ierr = PetscDrawFlush(draw);CHKERRQ(ierr);
+  ierr = PetscDrawPause(draw);CHKERRQ(ierr);
   ierr = PetscDrawSave(draw);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

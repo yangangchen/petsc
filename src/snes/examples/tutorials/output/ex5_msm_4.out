@@ -1,4 +1,3 @@
-<<<<<<< HEAD
   0 SNES Function norm 0.137187 
     0 KSP Residual norm 0.0751492 
     1 KSP Residual norm 0.0303034 
@@ -45,54 +44,6 @@
    42 KSP Residual norm 1.164e-10 
    43 KSP Residual norm 7.253e-11 
   1 SNES Function norm 2.290e-10 
-=======
-  0 SNES Function norm 1.371870931195e-01 
-    0 KSP Residual norm 7.514924505889e-02 
-    1 KSP Residual norm 3.030336958028e-02 
-    2 KSP Residual norm 1.888992084147e-02 
-    3 KSP Residual norm 1.177522877288e-02 
-    4 KSP Residual norm 7.340211418424e-03 
-    5 KSP Residual norm 4.575597188502e-03 
-    6 KSP Residual norm 2.852246132704e-03 
-    7 KSP Residual norm 1.777977314517e-03 
-    8 KSP Residual norm 1.108320665138e-03 
-    9 KSP Residual norm 6.908832226053e-04 
-   10 KSP Residual norm 4.306692478914e-04 
-   11 KSP Residual norm 2.684621583078e-04 
-   12 KSP Residual norm 1.673486806782e-04 
-   13 KSP Residual norm 1.043185419549e-04 
-   14 KSP Residual norm 6.502804893053e-05 
-   15 KSP Residual norm 4.053591114738e-05 
-   16 KSP Residual norm 2.526848213307e-05 
-   17 KSP Residual norm 1.575137134543e-05 
-   18 KSP Residual norm 9.818781276866e-06 
-   19 KSP Residual norm 6.120639508018e-06 
-   20 KSP Residual norm 3.815364344198e-06 
-   21 KSP Residual norm 2.378347076285e-06 
-   22 KSP Residual norm 1.482567405133e-06 
-   23 KSP Residual norm 9.241738233275e-07 
-   24 KSP Residual norm 5.760933720626e-07 
-   25 KSP Residual norm 3.591137997827e-07 
-   26 KSP Residual norm 2.238573249048e-07 
-   27 KSP Residual norm 1.395437935375e-07 
-   28 KSP Residual norm 8.698607613419e-08 
-   29 KSP Residual norm 5.422367595442e-08 
-   30 KSP Residual norm 3.380089278272e-08 
-   31 KSP Residual norm 2.107013831368e-08 
-   32 KSP Residual norm 1.313429007467e-08 
-   33 KSP Residual norm 8.187396410994e-09 
-   34 KSP Residual norm 5.103698749315e-09 
-   35 KSP Residual norm 3.181443756391e-09 
-   36 KSP Residual norm 1.983186082135e-09 
-   37 KSP Residual norm 1.236239695661e-09 
-   38 KSP Residual norm 7.706228625447e-10 
-   39 KSP Residual norm 4.803757932160e-10 
-   40 KSP Residual norm 2.994472448627e-10 
-   41 KSP Residual norm 1.866635652857e-10 
-   42 KSP Residual norm 1.163586726922e-10 
-   43 KSP Residual norm 7.253338151900e-11 
-  1 SNES Function norm 2.289562046898e-10 
->>>>>>> barry/consistent-formating-ascii-solver-viewers
 Nonlinear solve converged due to CONVERGED_FNORM_RELATIVE iterations 1
 SNES Object: 2 MPI processes
   type: newtonls
@@ -154,8 +105,4 @@ SNES Object: 2 MPI processes
       rows=32, cols=32
       total: nonzeros=136, allocated nonzeros=136
       total number of mallocs used during MatSetValues calls =0
-<<<<<<< HEAD
 N: 32 error L2 3.40437e-11 inf 8.12005e-11
-=======
-N: 32 error l2 6.01814e-12 inf 8.12006e-11
->>>>>>> barry/consistent-formating-ascii-solver-viewers

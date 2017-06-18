@@ -1643,12 +1643,8 @@ PetscErrorCode PCBDDCComputeLocalTopologyInfo(PC pc)
   Vec            local,global;
   PC_BDDC        *pcbddc = (PC_BDDC*)pc->data;
   Mat_IS         *matis = (Mat_IS*)pc->pmat->data;
-  PetscBool      monolithic = PETSC_FALSE;
 
   PetscFunctionBegin;
-  ierr = PetscOptionsBegin(PetscObjectComm((PetscObject)pc),((PetscObject)pc)->prefix,"BDDC topology options","PC");CHKERRQ(ierr);
-  ierr = PetscOptionsBool("-pc_bddc_monolithic","Don't split dofs by block size",NULL,monolithic,&monolithic,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsEnd();CHKERRQ(ierr);
   /* need to convert from global to local topology information and remove references to information in global ordering */
   ierr = MatCreateVecs(pc->pmat,&global,NULL);CHKERRQ(ierr);
   ierr = MatCreateVecs(matis->A,&local,NULL);CHKERRQ(ierr);
@@ -1672,7 +1668,7 @@ PetscErrorCode PCBDDCComputeLocalTopologyInfo(PC pc)
       if (!dm) {
         ierr = MatGetDM(pc->pmat, &dm);CHKERRQ(ierr);
       }
-      if (dm && !monolithic) {
+      if (dm) {
         IS      *fields;
         PetscInt nf,i;
         ierr = DMCreateFieldDecomposition(dm,&nf,NULL,&fields,NULL);CHKERRQ(ierr);
@@ -1687,14 +1683,14 @@ PetscErrorCode PCBDDCComputeLocalTopologyInfo(PC pc)
         PetscContainer   c;
 
         ierr = PetscObjectQuery((PetscObject)pc->pmat,"_convert_nest_lfields",(PetscObject*)&c);CHKERRQ(ierr);
-        if (c && !monolithic) {
+        if (c) {
           MatISLocalFields lf;
           ierr = PetscContainerGetPointer(c,(void**)&lf);CHKERRQ(ierr);
           ierr = PCBDDCSetDofsSplittingLocal(pc,lf->nr,lf->rf);CHKERRQ(ierr);
         } else { /* fallback, create the default fields if bs > 1 */
           PetscInt i, n = matis->A->rmap->n;
           ierr = MatGetBlockSize(pc->pmat,&i);CHKERRQ(ierr);
-          if (i > 1 && !monolithic) {
+          if (i > 1) {
             pcbddc->n_ISForDofsLocal = i;
             ierr = PetscMalloc1(pcbddc->n_ISForDofsLocal,&pcbddc->ISForDofsLocal);CHKERRQ(ierr);
             for (i=0;i<pcbddc->n_ISForDofsLocal;i++) {

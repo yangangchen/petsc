@@ -204,9 +204,6 @@ PetscErrorCode AOApplicationToPetscIS(AO ao,IS is)
   PetscValidHeaderSpecific(is,IS_CLASSID,2);
   ierr = ISToGeneral(is);CHKERRQ(ierr);
   /* we cheat because we know the is is general and that we can change the indices */
-
-  ierr = ISGetMinMax(is,&min,&max);CHKERRQ(ierr);
-
   ierr = ISGetIndices(is,(const PetscInt**)&ia);CHKERRQ(ierr);
   ierr = ISGetLocalSize(is,&n);CHKERRQ(ierr);
   ierr = (*ao->ops->applicationtopetsc)(ao,n,ia);CHKERRQ(ierr);

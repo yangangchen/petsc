@@ -37,7 +37,7 @@ PetscLogEvent AO_PetscToApplication, AO_ApplicationToPetsc;
 
 .seealso: PetscViewerASCIIOpen()
 @*/
-PetscErrorCode  AOView(AO ao,PetscViewer viewer)
+PetscErrorCode AOView(AO ao,PetscViewer viewer)
 {
   PetscErrorCode ierr;
 
@@ -67,7 +67,7 @@ PetscErrorCode  AOView(AO ao,PetscViewer viewer)
 
 .seealso: AOCreate()
 @*/
-PetscErrorCode  AODestroy(AO *ao)
+PetscErrorCode AODestroy(AO *ao)
 {
   PetscErrorCode ierr;
 
@@ -118,11 +118,13 @@ PetscErrorCode  AODestroy(AO *ao)
 .seealso: AOCreateBasic(), AOView(),AOApplicationToPetsc(),
           AOApplicationToPetscIS(),AOPetscToApplication()
 @*/
-PetscErrorCode  AOPetscToApplicationIS(AO ao,IS is)
+PetscErrorCode AOPetscToApplicationIS(AO ao,IS is)
 {
   PetscErrorCode ierr;
-  PetscInt       n;
+  PetscInt       n,i,max,min;
   PetscInt       *ia;
+  PetscBool      sorted = PETSC_TRUE;
+  IS_General     *sub;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ao,AO_CLASSID,1);
@@ -132,7 +134,34 @@ PetscErrorCode  AOPetscToApplicationIS(AO ao,IS is)
   ierr = ISGetIndices(is,(const PetscInt**)&ia);CHKERRQ(ierr);
   ierr = ISGetLocalSize(is,&n);CHKERRQ(ierr);
   ierr = (*ao->ops->petsctoapplication)(ao,n,ia);CHKERRQ(ierr);
+
+  /* update is->sorted */
+  for (i=1; i<n; i++) {
+    if (ia[i] < ia[i-1]) {sorted = PETSC_FALSE; break;}
+  }
+
+  /* update is->min and is->max */
+  if (n) {
+    min = max = ia[0];
+  } else {
+    min = -1;
+    max = -2;
+  }
+  for (i=1; i<n; i++) {
+    if (ia[i] < min) {
+      min = ia[i];
+    } else if (ia[i] > max) {
+      max = ia[i];
+    }
+  }
+
   ierr = ISRestoreIndices(is,(const PetscInt**)&ia);CHKERRQ(ierr);
+  sub = (IS_General*)is->data;
+  sub->sorted    = sorted;
+  is->min        = min;
+  is->max        = max;
+  is->isperm     = PETSC_FALSE;
+  is->isidentity = PETSC_FALSE;
   PetscFunctionReturn(0);
 }
 
@@ -163,10 +192,12 @@ PetscErrorCode  AOPetscToApplicationIS(AO ao,IS is)
 .seealso: AOCreateBasic(), AOView(), AOPetscToApplication(),
           AOPetscToApplicationIS(), AOApplicationToPetsc()
 @*/
-PetscErrorCode  AOApplicationToPetscIS(AO ao,IS is)
+PetscErrorCode AOApplicationToPetscIS(AO ao,IS is)
 {
   PetscErrorCode ierr;
-  PetscInt       n,*ia;
+  PetscInt       n,*ia,min,max,i;
+  PetscBool      sorted = PETSC_TRUE;
+  IS_General     *sub;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ao,AO_CLASSID,1);
@@ -176,7 +207,34 @@ PetscErrorCode  AOApplicationToPetscIS(AO ao,IS is)
   ierr = ISGetIndices(is,(const PetscInt**)&ia);CHKERRQ(ierr);
   ierr = ISGetLocalSize(is,&n);CHKERRQ(ierr);
   ierr = (*ao->ops->applicationtopetsc)(ao,n,ia);CHKERRQ(ierr);
+
+  /* update is->sorted */
+  for (i=1; i<n; i++) {
+    if (ia[i] < ia[i-1]) {sorted = PETSC_FALSE; break;}
+  }
+
+  /* update is->min and is->max */
+  if (n) {
+    min = max = ia[0];
+  } else {
+    min = -1;
+    max = -2;
+  }
+  for (i=1; i<n; i++) {
+    if (ia[i] < min) {
+      min = ia[i];
+    } else if (ia[i] > max) {
+      max = ia[i];
+    }
+  }
+
   ierr = ISRestoreIndices(is,(const PetscInt**)&ia);CHKERRQ(ierr);
+  sub            = (IS_General*)is->data;
+  sub->sorted    = sorted;
+  is->min        = min;
+  is->max        = max;
+  is->isperm     = PETSC_FALSE;
+  is->isidentity = PETSC_FALSE;
   PetscFunctionReturn(0);
 }
 
@@ -208,7 +266,7 @@ PetscErrorCode  AOApplicationToPetscIS(AO ao,IS is)
 .seealso: AOCreateBasic(), AOView(),AOApplicationToPetsc(),
           AOPetscToApplicationIS(), AOApplicationToPetsc()
 @*/
-PetscErrorCode  AOPetscToApplication(AO ao,PetscInt n,PetscInt ia[])
+PetscErrorCode AOPetscToApplication(AO ao,PetscInt n,PetscInt ia[])
 {
   PetscErrorCode ierr;
 
@@ -247,7 +305,7 @@ PetscErrorCode  AOPetscToApplication(AO ao,PetscInt n,PetscInt ia[])
 .seealso: AOCreateBasic(), AOView(), AOPetscToApplication(),
           AOPetscToApplicationIS(), AOApplicationToPetsc()
 @*/
-PetscErrorCode  AOApplicationToPetsc(AO ao,PetscInt n,PetscInt ia[])
+PetscErrorCode AOApplicationToPetsc(AO ao,PetscInt n,PetscInt ia[])
 {
   PetscErrorCode ierr;
 
@@ -284,7 +342,7 @@ PetscErrorCode  AOApplicationToPetsc(AO ao,PetscInt n,PetscInt ia[])
 .keywords: application ordering, mapping
 .seealso: AOCreateBasic(), AOView(), AOApplicationToPetsc(), AOPetscToApplicationIS()
 @*/
-PetscErrorCode  AOPetscToApplicationPermuteInt(AO ao, PetscInt block, PetscInt array[])
+PetscErrorCode AOPetscToApplicationPermuteInt(AO ao, PetscInt block, PetscInt array[])
 {
   PetscErrorCode ierr;
 
@@ -322,7 +380,7 @@ PetscErrorCode  AOPetscToApplicationPermuteInt(AO ao, PetscInt block, PetscInt a
 
 .seealso: AOCreateBasic(), AOView(), AOPetscToApplicationIS(), AOApplicationToPetsc()
 @*/
-PetscErrorCode  AOApplicationToPetscPermuteInt(AO ao, PetscInt block, PetscInt array[])
+PetscErrorCode AOApplicationToPetscPermuteInt(AO ao, PetscInt block, PetscInt array[])
 {
   PetscErrorCode ierr;
 
@@ -360,7 +418,7 @@ PetscErrorCode  AOApplicationToPetscPermuteInt(AO ao, PetscInt block, PetscInt a
 
 .seealso: AOCreateBasic(), AOView(), AOApplicationToPetsc(), AOPetscToApplicationIS()
 @*/
-PetscErrorCode  AOPetscToApplicationPermuteReal(AO ao, PetscInt block, PetscReal array[])
+PetscErrorCode AOPetscToApplicationPermuteReal(AO ao, PetscInt block, PetscReal array[])
 {
   PetscErrorCode ierr;
 
@@ -507,7 +565,7 @@ PetscErrorCode AOSetIS(AO ao,IS isapp,IS ispetsc)
 
 .seealso: AOSetIS(), AODestroy(), AOPetscToApplication(), AOApplicationToPetsc()
 @*/
-PetscErrorCode  AOCreate(MPI_Comm comm,AO *ao)
+PetscErrorCode AOCreate(MPI_Comm comm,AO *ao)
 {
   PetscErrorCode ierr;
   AO             aonew;
